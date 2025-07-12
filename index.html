@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferrari Car Configurator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="canvas-container"></div>
+        
+        <div class="controls">
+            <h1>Car Configurator</h1>
+            
+            <div class="control-group">
+                <h3 class="control-header">
+                    <span>車種選択</span>
+                    <span class="toggle-icon">▼</span>
+                </h3>
+                <div class="control-content car-selection">
+                    <button class="car-btn active" data-car="DaimlerV8">Daimler V8</button>
+                    <button class="car-btn" data-car="JaguarXJ8">Jaguar XJ8</button>
+                    <button class="car-btn" data-car="JaguarXJR">Jaguar XJR</button>
+                    <button class="car-btn" data-car="JaguarSuperV8">Jaguar Super V8</button>
+                    <button class="car-btn" data-car="JaguarXJSovereign">Jaguar XJ Sovereign</button>
+                    <button class="car-btn" data-car="JaguarXJSports">Jaguar XJ Sports</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3 class="control-header">
+                    <span>ボディカラー</span>
+                    <span class="toggle-icon">▼</span>
+                </h3>
+                <div class="control-content color-picker-container">
+                    <input type="color" id="bodyColorPicker" class="color-picker" value="#0000ff">
+                    <div class="color-presets">
+                        <button class="preset-btn" data-color="#FF0000" style="background-color: #FF0000;" title="レッド"></button>
+                        <button class="preset-btn" data-color="#0000FF" style="background-color: #0000FF;" title="ブルー"></button>
+                        <button class="preset-btn" data-color="#052e1c" style="background-color: #052e1c;" title="ブリティッシュグリーン"></button>
+                        <button class="preset-btn" data-color="#FFFFFF" style="background-color: #FFFFFF;" title="ホワイト"></button>
+                        <button class="preset-btn" data-color="#000000" style="background-color: #000000;" title="ブラック"></button>
+                        <button class="preset-btn" data-color="#FFD700" style="background-color: #FFD700;" title="ゴールド"></button>
+                        <button class="preset-btn" data-color="#C0C0C0" style="background-color: #C0C0C0;" title="シルバー"></button>
+                        <button class="preset-btn" data-color="#800020" style="background-color: #800020;" title="バーガンディ"></button>
+                    </div>
+                </div>
+            </div>
+            
+            
+            <div class="control-group">
+                <h3 class="control-header">
+                    <span>カメラコントロール</span>
+                    <span class="toggle-icon">▼</span>
+                </h3>
+                <div class="control-content camera-controls">
+                    <button class="camera-btn" data-view="front">フロント</button>
+                    <button class="camera-btn" data-view="side">サイド</button>
+                    <button class="camera-btn" data-view="rear">リア</button>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <div class="loading-screen" id="loading">
+            <div class="spinner"></div>
+            <p>Loading Car Model...</p>
+        </div>
+    </div>
+    
+    <script type="module" src="main.js"></script>
+</body>
+</html>
