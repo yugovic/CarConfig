@@ -1,3 +1,4 @@
+/* Modern Car Configurator Styles */
 * {
     margin: 0;
     padding: 0;
@@ -6,225 +7,843 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #000;
+    color: #fff;
     overflow: hidden;
-    background: #0a0a0a;
-    color: #ffffff;
+    height: 100vh;
 }
 
 #app {
-    width: 100vw;
+    width: 100%;
     height: 100vh;
+    display: flex;
+    flex-direction: column;
     position: relative;
 }
 
+/* Canvas Container */
 #canvas-container {
-    width: 100%;
-    height: 100%;
+    flex: 1;
+    position: relative;
+    background: #000;
+}
+
+/* Top Bar */
+.top-bar {
     position: absolute;
     top: 0;
     left: 0;
-}
-
-.controls {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    width: 320px;
-    background: rgba(20, 20, 20, 0.95);
-    border-radius: 12px;
-    padding: 24px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-}
-
-.controls h1 {
-    font-size: 24px;
-    margin-bottom: 24px;
-    text-align: center;
-    color: #ff2800;
-    font-weight: 600;
-}
-
-.control-group {
-    margin-bottom: 28px;
-}
-
-.control-header {
+    right: 0;
+    height: 80px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0));
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 16px;
-    margin-bottom: 12px;
-    color: #e0e0e0;
-    font-weight: 500;
+    padding: 0 40px;
+    z-index: 1000;
+}
+
+/* 右上の動画ボタン */
+.movie-btn-top {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 40, 0, 0.9);
+    border: none;
+    color: #fff;
     cursor: pointer;
-    user-select: none;
-    padding: 8px 0;
-    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(255, 40, 0, 0.3);
 }
 
-.control-header:hover {
-    color: #ff2800;
+.movie-btn-top:hover {
+    background: #ff4500;
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(255, 40, 0, 0.4);
 }
 
-.toggle-icon {
-    transition: transform 0.3s ease;
-    font-size: 12px;
+.movie-btn-top i {
+    font-size: 20px;
 }
 
-.control-group.collapsed .toggle-icon {
-    transform: rotate(-90deg);
+.movie-btn-top.playing {
+    background: rgba(136, 136, 136, 0.9);
 }
 
-.control-content {
+.movie-btn-top.playing i::before {
+    content: '\f04c';
+}
+
+/* 動画進捗インジケーター */
+.movie-progress-top {
+    position: absolute;
+    top: 90px;
+    right: 40px;
+    width: 200px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
     overflow: hidden;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
-    max-height: 500px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.movie-progress-top.active {
     opacity: 1;
 }
 
-.control-group.collapsed .control-content {
-    max-height: 0;
-    opacity: 0;
-    margin-bottom: 0;
-}
-
-.car-selection {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.car-btn {
-    padding: 12px 20px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    color: #e0e0e0;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 14px;
-    font-weight: 500;
-    text-align: left;
-}
-
-.car-btn:hover {
-    background: rgba(255, 40, 0, 0.2);
-    border-color: #ff2800;
-    color: #ffffff;
-}
-
-.car-btn.active {
+.movie-progress-top .progress-bar {
+    height: 100%;
     background: #ff2800;
-    border-color: #ff2800;
-    color: #ffffff;
+    width: 0;
+    transition: width 0.1s linear;
 }
 
-.color-picker-container {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.color-picker {
-    width: 100%;
-    height: 50px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.1);
-    transition: all 0.3s ease;
-}
-
-.color-picker:hover {
-    border-color: #ff2800;
-}
-
-.color-presets {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.preset-btn {
-    width: 32px;
-    height: 32px;
-    border: 2px solid transparent;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-}
-
-.preset-btn:hover {
-    border-color: #ff2800;
-    transform: scale(1.1);
-}
-
-.wheel-options,
-.interior-options,
-.camera-controls {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.wheel-btn,
-.interior-btn,
-.camera-btn {
-    flex: 1;
-    padding: 10px 16px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    color: #e0e0e0;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 14px;
-    font-weight: 500;
-    min-width: 80px;
-}
-
-.wheel-btn:hover,
-.interior-btn:hover,
-.camera-btn:hover {
-    background: rgba(255, 40, 0, 0.2);
-    border-color: #ff2800;
-    color: #ffffff;
-}
-
-.wheel-btn.active,
-.interior-btn.active,
-.camera-btn.active {
-    background: #ff2800;
-    border-color: #ff2800;
-    color: #ffffff;
-}
-
-.loading-screen {
-    position: absolute;
+/* ガレージモーダル */
+.garage-modal {
+    display: none;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: #0a0a0a;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.garage-modal.active {
+    display: flex;
+}
+
+.garage-modal .modal-content {
+    background: rgba(20, 20, 20, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+}
+
+.garage-settings-container {
+    padding: 20px;
+}
+
+.logo {
+    display: flex;
     align-items: center;
-    z-index: 1000;
+    gap: 12px;
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: 2px;
+}
+
+.logo i {
+    font-size: 28px;
+    color: #ff2800;
+}
+
+.price-display {
+    text-align: right;
+}
+
+.price-label {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.price-value {
+    font-size: 28px;
+    font-weight: 300;
+    color: #fff;
+}
+
+/* Configurator Container */
+.configurator-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(20, 20, 20, 0.7);
+    backdrop-filter: blur(15px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    transform: translateY(calc(100% - 45px));
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+}
+
+/* ホバーエリアを上に拡張 */
+.configurator-container::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 0;
+    right: 0;
+    height: 90px;
+    background: transparent;
+}
+
+/* Hover Trigger Area - 削除（不要） */
+.hover-trigger {
+    display: none;
+}
+
+.configurator-container:hover {
+    transform: translateY(0);
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(20px);
+}
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 40px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: #fff;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #ff2800;
+}
+
+.tab-btn i {
+    font-size: 14px;
+}
+
+/* Tab Content */
+.tab-content {
+    max-height: 150px;
+    overflow-y: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.configurator-container:hover .tab-content {
+    max-height: 200px;
+}
+
+.tab-panel {
+    display: none;
+    padding: 10px 15px;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.panel-title {
+    font-size: 12px;
+    font-weight: 300;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+/* Model Grid */
+.model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.model-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.model-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.model-card.active {
+    background: rgba(255, 40, 0, 0.1);
+    border-color: #ff2800;
+}
+
+
+.model-card h3 {
+    font-size: 12px;
+    font-weight: 400;
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* Color Selection */
+.color-selection {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.color-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1;
+}
+
+.color-option {
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s ease;
+    flex: 0 0 auto;
+}
+
+.color-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin: 0 auto 3px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.color-circle::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.color-option:hover .color-circle {
+    transform: scale(1.1);
+}
+
+.color-option.active .color-circle {
+    border-color: #ff2800;
+}
+
+.color-option.active .color-circle::after {
+    border-color: rgba(255, 40, 0, 0.3);
+}
+
+.color-option span {
+    font-size: 9px;
+    color: #888;
+    transition: color 0.3s ease;
+    display: block;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.color-option:hover span,
+.color-option.active span {
+    color: #fff;
+}
+
+.custom-color {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-left: 15px;
+}
+
+.custom-color label {
+    font-size: 11px;
+    color: #888;
+}
+
+.color-picker {
+    width: 60px;
+    height: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* View Controls */
+.view-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.view-presets {
+    display: flex;
+    gap: 10px;
+}
+
+.view-btn {
+    flex: 1;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.view-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.view-btn i {
+    font-size: 14px;
+}
+
+.view-btn span {
+    font-size: 11px;
+}
+
+/* Movie Section */
+.movie-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.movie-section h3 {
+    font-size: 11px;
+    font-weight: 400;
+    margin-bottom: 5px;
+    color: #888;
+}
+
+.movie-btn.modern {
+    width: 100%;
+    padding: 8px 16px;
+    background: #ff2800;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.movie-btn.modern:hover {
+    background: #ff4500;
+    transform: translateY(-2px);
+}
+
+.movie-btn.modern.playing {
+    background: #888;
+}
+
+.movie-btn.modern.playing .movie-icon {
+    content: '\f04c';
+}
+
+.movie-progress {
+    margin-top: 15px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.movie-progress.active {
+    opacity: 1;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #ff2800;
+    width: 0;
+    transition: width 0.1s linear;
+}
+
+/* Editor Modal */
+.editor-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.editor-modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: rgba(20, 20, 20, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: move;
+    user-select: none;
+}
+
+.modal-header h2 {
+    font-size: 20px;
+    font-weight: 300;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.modal-close:hover {
+    color: #fff;
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* Editor Container in Modal */
+.editor-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.editor-canvas-wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+}
+
+#cameraEditor2D {
+    width: 100%;
+    height: 300px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    cursor: crosshair;
+}
+
+.editor-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.editor-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.settings-group {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.settings-group h3 {
+    font-size: 12px;
+    font-weight: 400;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.slider-field,
+.select-field {
+    margin-bottom: 10px;
+}
+
+.slider-field label,
+.select-field label {
+    display: block;
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.slider-field {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.slider-field input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    outline: none;
+}
+
+.slider-field input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #ff2800;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.value-display {
+    min-width: 50px;
+    text-align: right;
+    font-size: 14px;
+}
+
+select {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.action-btn.primary {
+    background: #0066ff;
+    color: #fff;
+}
+
+.action-btn.primary:hover {
+    background: #0052cc;
+}
+
+.action-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.action-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.action-btn.success {
+    background: #28a745;
+    color: #fff;
+}
+
+.action-btn.success:hover {
+    background: #218838;
+}
+
+.action-btn.small {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    font-size: 12px;
+}
+
+/* Preset Manager */
+.preset-manager {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.preset-manager h3 {
+    font-size: 16px;
+    font-weight: 400;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.preset-btn {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 10px;
+}
+
+.preset-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.preset-btn.saved {
+    background: rgba(40, 167, 69, 0.2);
+    border-color: #28a745;
+}
+
+.preset-btn.active {
+    background: rgba(255, 40, 0, 0.2);
+    border-color: #ff2800;
+}
+
+.preset-btn i {
+    font-size: 16px;
+}
+
+/* Status Bar */
+.status-bar {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.status-bar p {
+    font-size: 14px;
+    color: #888;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Loading Screen */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
 }
 
 .spinner {
     width: 60px;
     height: 60px;
-    border: 3px solid rgba(255, 40, 0, 0.3);
-    border-top-color: #ff2800;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top: 3px solid #ff2800;
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-bottom: 20px;
 }
 
 @keyframes spin {
@@ -234,29 +853,76 @@ body {
 }
 
 .loading-screen p {
-    color: #e0e0e0;
-    font-size: 18px;
+    margin-top: 20px;
+    font-size: 16px;
+    color: #888;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .model-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .color-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .editor-container {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 768px) {
-    .controls {
-        right: 10px;
-        top: 10px;
-        width: 280px;
-        padding: 16px;
+    .top-bar {
+        padding: 0 20px;
+        height: 60px;
     }
     
-    .controls h1 {
+    .logo {
+        font-size: 18px;
+    }
+    
+    .price-value {
         font-size: 20px;
-        margin-bottom: 16px;
     }
     
-    .control-group {
-        margin-bottom: 20px;
+    .model-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     
-    .color-btn {
-        width: 32px;
-        height: 32px;
+    .color-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .tab-btn {
+        padding: 15px 10px;
+        font-size: 12px;
+    }
+    
+    .tab-btn span {
+        display: none;
+    }
+    
+    .view-presets {
+        flex-direction: column;
     }
 }

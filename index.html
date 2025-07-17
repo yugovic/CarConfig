@@ -3,62 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ferrari Car Configurator</title>
+    <title>Car Configurator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app">
         <div id="canvas-container"></div>
         
-        <div class="controls">
-            <h1>Car Configurator</h1>
-            
-            <div class="control-group">
-                <h3 class="control-header">
-                    <span>車種選択</span>
-                    <span class="toggle-icon">▼</span>
-                </h3>
-                <div class="control-content car-selection">
-                    <button class="car-btn active" data-car="DaimlerV8">Daimler V8</button>
-                    <button class="car-btn" data-car="JaguarXJ8">Jaguar XJ8</button>
-                    <button class="car-btn" data-car="JaguarXJR">Jaguar XJR</button>
-                    <button class="car-btn" data-car="JaguarSuperV8">Jaguar Super V8</button>
-                    <button class="car-btn" data-car="JaguarXJSovereign">Jaguar XJ Sovereign</button>
-                    <button class="car-btn" data-car="JaguarXJSports">Jaguar XJ Sports</button>
-                </div>
+        <div class="top-bar">
+            <div class="logo">
+                <i class="fas fa-car"></i>
+                <span>Car Configurator</span>
+            </div>
+            <button class="movie-btn-top" id="playMovieTop" title="プレゼンテーション">
+                <i class="fas fa-play"></i>
+            </button>
+        </div>
+        
+        <div class="movie-progress-top" id="movieProgressTop">
+            <div class="progress-bar"></div>
+        </div>
+        
+        <div class="configurator-container">
+            <div class="hover-trigger"></div>
+            <div class="tab-navigation">
+                <button class="tab-btn active" data-tab="models">
+                    <i class="fas fa-car-side"></i>
+                    <span>モデル</span>
+                </button>
+                <button class="tab-btn" data-tab="exterior">
+                    <i class="fas fa-palette"></i>
+                    <span>エクステリア</span>
+                </button>
+                <button class="tab-btn" data-tab="camera">
+                    <i class="fas fa-camera"></i>
+                    <span>ビュー</span>
+                </button>
             </div>
             
-            <div class="control-group">
-                <h3 class="control-header">
-                    <span>ボディカラー</span>
-                    <span class="toggle-icon">▼</span>
-                </h3>
-                <div class="control-content color-picker-container">
-                    <input type="color" id="bodyColorPicker" class="color-picker" value="#0000ff">
-                    <div class="color-presets">
-                        <button class="preset-btn" data-color="#FF0000" style="background-color: #FF0000;" title="レッド"></button>
-                        <button class="preset-btn" data-color="#0000FF" style="background-color: #0000FF;" title="ブルー"></button>
-                        <button class="preset-btn" data-color="#052e1c" style="background-color: #052e1c;" title="ブリティッシュグリーン"></button>
-                        <button class="preset-btn" data-color="#FFFFFF" style="background-color: #FFFFFF;" title="ホワイト"></button>
-                        <button class="preset-btn" data-color="#000000" style="background-color: #000000;" title="ブラック"></button>
-                        <button class="preset-btn" data-color="#FFD700" style="background-color: #FFD700;" title="ゴールド"></button>
-                        <button class="preset-btn" data-color="#C0C0C0" style="background-color: #C0C0C0;" title="シルバー"></button>
-                        <button class="preset-btn" data-color="#800020" style="background-color: #800020;" title="バーガンディ"></button>
+            <div class="tab-content">
+                <div class="tab-panel active" id="models-panel">
+                    <h2 class="panel-title">モデルを選択</h2>
+                    <div class="model-grid">
+                        <div class="model-card active" data-car="DaimlerV8">
+                            <h3>Daimler V8</h3>
+                        </div>
+                        <div class="model-card" data-car="JaguarXJ8">
+                            <h3>Jaguar XJ8</h3>
+                        </div>
+                        <div class="model-card" data-car="JaguarXJR">
+                            <h3>Jaguar XJR</h3>
+                        </div>
+                        <div class="model-card" data-car="JaguarSuperV8">
+                            <h3>Jaguar Super V8</h3>
+                        </div>
+                        <div class="model-card" data-car="JaguarXJSovereign">
+                            <h3>XJ Sovereign</h3>
+                        </div>
+                        <div class="model-card" data-car="JaguarXJSports">
+                            <h3>XJ Sports</h3>
+                        </div>
+                    </div>
+                </div>
+            
+                <div class="tab-panel" id="exterior-panel">
+                    <h2 class="panel-title">エクステリアカラー</h2>
+                    <div class="color-selection">
+                        <div class="color-grid">
+                            <div class="color-option active" data-color="#052e1c">
+                                <div class="color-circle" style="background-color: #052e1c;"></div>
+                                <span>ブリティッシュグリーン</span>
+                            </div>
+                            <div class="color-option" data-color="#000000">
+                                <div class="color-circle" style="background-color: #000000;"></div>
+                                <span>サントリーニブラック</span>
+                            </div>
+                            <div class="color-option" data-color="#1e3a5f">
+                                <div class="color-circle" style="background-color: #1e3a5f;"></div>
+                                <span>ミッドナイトブルー</span>
+                            </div>
+                            <div class="color-option" data-color="#FFFFFF">
+                                <div class="color-circle" style="background-color: #FFFFFF;"></div>
+                                <span>ポラリスホワイト</span>
+                            </div>
+                            <div class="color-option" data-color="#C0C0C0">
+                                <div class="color-circle" style="background-color: #C0C0C0;"></div>
+                                <span>インダスシルバー</span>
+                            </div>
+                            <div class="color-option" data-color="#800020">
+                                <div class="color-circle" style="background-color: #800020;"></div>
+                                <span>カーネリアンレッド</span>
+                            </div>
+                            <div class="color-option" data-color="#B8860B">
+                                <div class="color-circle" style="background-color: #B8860B;"></div>
+                                <span>ブラスゴールド</span>
+                            </div>
+                            <div class="color-option" data-color="#4B0082">
+                                <div class="color-circle" style="background-color: #4B0082;"></div>
+                                <span>アメジストパープル</span>
+                            </div>
+                        </div>
+                        <div class="custom-color">
+                            <label>カスタムカラー</label>
+                            <input type="color" id="bodyColorPicker" class="color-picker" value="#052e1c">
+                        </div>
+                    </div>
+                </div>
+            
+                <div class="tab-panel" id="camera-panel">
+                    <h2 class="panel-title">ビューコントロール</h2>
+                    <div class="view-controls">
+                        <div class="view-presets">
+                            <button class="view-btn" data-view="front">
+                                <i class="fas fa-car-side fa-rotate-180"></i>
+                                <span>フロント</span>
+                            </button>
+                            <button class="view-btn" data-view="side">
+                                <i class="fas fa-car-side"></i>
+                                <span>サイド</span>
+                            </button>
+                            <button class="view-btn" data-view="rear">
+                                <i class="fas fa-car-rear"></i>
+                                <span>リア</span>
+                            </button>
+                        </div>
+                        
+                        <div class="movie-section">
+                            <h3>プレゼンテーション</h3>
+                            <button class="movie-btn modern" id="playMovie">
+                                <i class="fas fa-play movie-icon"></i>
+                                <span class="movie-text">ムービー再生</span>
+                            </button>
+                            <div class="movie-progress">
+                                <div class="progress-bar" id="movieProgress"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            
-            <div class="control-group">
-                <h3 class="control-header">
-                    <span>カメラコントロール</span>
-                    <span class="toggle-icon">▼</span>
-                </h3>
-                <div class="control-content camera-controls">
-                    <button class="camera-btn" data-view="front">フロント</button>
-                    <button class="camera-btn" data-view="side">サイド</button>
-                    <button class="camera-btn" data-view="rear">リア</button>
-                    
+        </div>
+        
+        <!-- カメラエディターモーダル -->
+        <div class="editor-modal" id="editorModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>カメラエディター</h2>
+                    <button class="modal-close" id="closeModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="editor-container">
+                        <div class="editor-canvas-wrapper">
+                            <canvas id="cameraEditor2D" width="400" height="200"></canvas>
+                            <p class="editor-hint"><i class="fas fa-info-circle"></i> キャンバスをクリックしてカメラパスを設定</p>
+                        </div>
+                        
+                        <div class="editor-settings">
+                            <div class="settings-group">
+                                <h3><i class="fas fa-arrows-alt-v"></i> 高さ設定</h3>
+                                <div class="slider-field">
+                                    <label>始点高さ</label>
+                                    <input type="range" id="cameraStartHeight" min="0.1" max="5" step="0.1" value="1.5">
+                                    <span class="value-display" id="startHeightValue">1.5m</span>
+                                </div>
+                                <div class="slider-field">
+                                    <label>終点高さ</label>
+                                    <input type="range" id="cameraEndHeight" min="0.1" max="5" step="0.1" value="1.5">
+                                    <span class="value-display" id="endHeightValue">1.5m</span>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-group">
+                                <h3><i class="fas fa-cog"></i> アニメーション設定</h3>
+                                <div class="slider-field">
+                                    <label>速度</label>
+                                    <input type="range" id="cameraSpeed" min="0.5" max="5" step="0.1" value="1">
+                                    <span class="value-display" id="speedValue">1.0x</span>
+                                </div>
+                                <div class="select-field">
+                                    <label>補間タイプ</label>
+                                    <select id="interpolationType">
+                                        <option value="linear">リニア</option>
+                                        <option value="easeInOut">イーズイン・アウト</option>
+                                        <option value="easeIn">イーズイン</option>
+                                        <option value="easeOut">イーズアウト</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-group">
+                                <h3><i class="fas fa-video"></i> カメラ設定</h3>
+                                <div class="slider-field">
+                                    <label>視野角(FOV)</label>
+                                    <input type="range" id="cameraFOVEditor" min="20" max="100" step="1" value="30">
+                                    <span class="value-display" id="cameraFOVEditorValue">30°</span>
+                                </div>
+                            </div>
+                            
+                            <div class="settings-group">
+                                <h3><i class="fas fa-compass"></i> カメラの向き</h3>
+                                <div class="select-field">
+                                    <label>モード</label>
+                                    <select id="cameraLookMode">
+                                        <option value="lookAtCar">車を見る</option>
+                                        <option value="lookForward">進行方向を見る</option>
+                                        <option value="parallel">平行移動</option>
+                                        <option value="angle">角度指定</option>
+                                    </select>
+                                </div>
+                                <div id="angleControls" style="display: none;">
+                                    <div class="slider-field">
+                                        <label>パン角度</label>
+                                        <input type="range" id="cameraPan" min="-180" max="180" step="1" value="0">
+                                        <span class="value-display" id="panValue">0°</span>
+                                    </div>
+                                    <div class="slider-field">
+                                        <label>チルト角度</label>
+                                        <input type="range" id="cameraTilt" min="-90" max="90" step="1" value="0">
+                                        <span class="value-display" id="tiltValue">0°</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="action-buttons">
+                                <button class="action-btn secondary" id="clearPath">
+                                    <i class="fas fa-trash"></i> クリア
+                                </button>
+                                <button class="action-btn primary" id="previewPath">
+                                    <i class="fas fa-eye"></i> プレビュー
+                                </button>
+                                <button class="action-btn success" id="applyPath">
+                                    <i class="fas fa-check"></i> 適用
+                                </button>
+                            </div>
+                            
+                            <div class="preset-manager">
+                                <h3><i class="fas fa-bookmark"></i> プリセット</h3>
+                                <div class="preset-buttons">
+                                    <button class="preset-btn" id="preset1" title="サイド">
+                                        <i class="fas fa-car-side"></i> 1
+                                    </button>
+                                    <button class="preset-btn" id="preset2" title="リア">
+                                        <i class="fas fa-car-rear"></i> 2
+                                    </button>
+                                    <button class="preset-btn" id="preset3" title="フロント">
+                                        <i class="fas fa-car"></i> 3
+                                    </button>
+                                    <button class="action-btn secondary small" id="savePreset">
+                                        <i class="fas fa-save"></i> 保存
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="status-bar">
+                                <p id="editorStatus"><i class="fas fa-mouse-pointer"></i> 始点を選択してください</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ガレージ設定モーダル -->
+        <div class="garage-modal" id="garageModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>ガレージ設定</h2>
+                    <button class="modal-close" id="closeGarageModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="garage-settings-container">
+                        <div class="settings-group">
+                            <h3><i class="fas fa-warehouse"></i> ガレージ調整</h3>
+                            <div class="slider-field">
+                                <label>スケール</label>
+                                <input type="range" id="garageScale" min="0.05" max="1.0" step="0.01" value="0.5">
+                                <span class="value-display" id="garageScaleValue">0.50x</span>
+                            </div>
+                            <div class="slider-field">
+                                <label>高さ</label>
+                                <input type="range" id="garageHeight" min="-2" max="2" step="0.1" value="0.6">
+                                <span class="value-display" id="garageHeightValue">0.6m</span>
+                            </div>
+                            <div class="slider-field">
+                                <label>X位置</label>
+                                <input type="range" id="garageX" min="-5" max="5" step="0.1" value="1.3">
+                                <span class="value-display" id="garageXValue">1.3m</span>
+                            </div>
+                            <div class="slider-field">
+                                <label>Z位置</label>
+                                <input type="range" id="garageZ" min="-5" max="5" step="0.1" value="1.0">
+                                <span class="value-display" id="garageZValue">1.0m</span>
+                            </div>
+                            <div class="slider-field">
+                                <label>回転</label>
+                                <input type="range" id="garageRotation" min="-180" max="180" step="1" value="0">
+                                <span class="value-display" id="garageRotationValue">0°</span>
+                            </div>
+                            <div class="slider-field">
+                                <label>影床の高さ</label>
+                                <input type="range" id="shadowFloorY" min="-0.5" max="0.5" step="0.01" value="0.03">
+                                <span class="value-display" id="shadowFloorYValue">0.03m</span>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <h3><i class="fas fa-video"></i> カメラ設定</h3>
+                            <div class="slider-field">
+                                <label>視野角(FOV)</label>
+                                <input type="range" id="cameraFOV" min="20" max="100" step="1" value="30">
+                                <span class="value-display" id="cameraFOVValue">30°</span>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="action-btn secondary" id="resetGarage">
+                                <i class="fas fa-undo"></i> リセット
+                            </button>
+                            <button class="action-btn primary" id="applyGarage">
+                                <i class="fas fa-check"></i> 適用
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
