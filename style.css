@@ -48,21 +48,21 @@ body {
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: rgba(255, 40, 0, 0.9);
+    background: rgba(255, 255, 255, 0.9);
     border: none;
-    color: #fff;
+    color: #000;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(255, 40, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
 }
 
 .movie-btn-top:hover {
     background: #ff4500;
     transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba(255, 40, 0, 0.4);
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4);
 }
 
 .movie-btn-top i {
@@ -97,7 +97,7 @@ body {
 
 .movie-progress-top .progress-bar {
     height: 100%;
-    background: #ff2800;
+    background: #ffffff;
     width: 0;
     transition: width 0.1s linear;
 }
@@ -148,7 +148,7 @@ body {
 
 .logo i {
     font-size: 28px;
-    color: #ff2800;
+    color: #ffffff;
 }
 
 .price-display {
@@ -246,7 +246,7 @@ body {
     left: 0;
     right: 0;
     height: 3px;
-    background: #ff2800;
+    background: #ffffff;
 }
 
 .tab-btn i {
@@ -316,8 +316,8 @@ body {
 }
 
 .model-card.active {
-    background: rgba(255, 40, 0, 0.1);
-    border-color: #ff2800;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #ffffff;
 }
 
 
@@ -373,11 +373,11 @@ body {
 }
 
 .color-option.active .color-circle {
-    border-color: #ff2800;
+    border-color: #ffffff;
 }
 
 .color-option.active .color-circle::after {
-    border-color: rgba(255, 40, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .color-option span {
@@ -474,10 +474,10 @@ body {
 .movie-btn.modern {
     width: 100%;
     padding: 8px 16px;
-    background: #ff2800;
+    background: #ffffff;
     border: none;
     border-radius: 6px;
-    color: #fff;
+    color: #000;
     font-size: 11px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -488,7 +488,7 @@ body {
 }
 
 .movie-btn.modern:hover {
-    background: #ff4500;
+    background: #f0f0f0;
     transform: translateY(-2px);
 }
 
@@ -516,7 +516,7 @@ body {
 
 .progress-bar {
     height: 100%;
-    background: #ff2800;
+    background: #ffffff;
     width: 0;
     transition: width 0.1s linear;
 }
@@ -673,7 +673,7 @@ body {
     -webkit-appearance: none;
     width: 16px;
     height: 16px;
-    background: #ff2800;
+    background: #ffffff;
     border-radius: 50%;
     cursor: pointer;
 }
@@ -798,8 +798,8 @@ select {
 }
 
 .preset-btn.active {
-    background: rgba(255, 40, 0, 0.2);
-    border-color: #ff2800;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #ffffff;
 }
 
 .preset-btn i {
@@ -841,7 +841,7 @@ select {
     width: 60px;
     height: 60px;
     border: 3px solid rgba(255, 255, 255, 0.1);
-    border-top: 3px solid #ff2800;
+    border-top: 3px solid #ffffff;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
