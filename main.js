@@ -34,12 +34,12 @@ class CarConfigurator {
         };
         
         this.availableCars = {
-            'DaimlerV8': '/Assets/DaimlerV8.glb',
-            'JaguarXJ8': '/Assets/JaguarXJ8.glb',
-            'JaguarXJR': '/Assets/JaguarXJR.glb',
-            'JaguarSuperV8': '/Assets/JaguarSuperV8.glb',
-            'JaguarXJSovereign': '/Assets/JaguarXJSovereign.glb',
-            'JaguarXJSports': '/Assets/JaguarXJSports.glb'
+            'DaimlerV8': '/CarConfig/Assets/DaimlerV8.glb',
+            'JaguarXJ8': '/CarConfig/Assets/JaguarXJ8.glb',
+            'JaguarXJR': '/CarConfig/Assets/JaguarXJR.glb',
+            'JaguarSuperV8': '/CarConfig/Assets/JaguarSuperV8.glb',
+            'JaguarXJSovereign': '/CarConfig/Assets/JaguarXJSovereign.glb',
+            'JaguarXJSports': '/CarConfig/Assets/JaguarXJSports.glb'
         };
         
         // ガレージの設定
@@ -202,7 +202,7 @@ class CarConfigurator {
     loadGarage() {
         const loader = new GLTFLoader();
         loader.load(
-            '/Assets/ScifiGarage.glb',
+            '/CarConfig/Assets/ScifiGarage.glb',
             (gltf) => {
                 const garage = gltf.scene;
                 this.garageModel = garage;
