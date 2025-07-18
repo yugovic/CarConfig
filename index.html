@@ -28,11 +28,9 @@
             <div class="hover-trigger"></div>
             <div class="tab-navigation">
                 <button class="tab-btn active" data-tab="models">
-                    <i class="fas fa-car-side"></i>
                     <span>モデル</span>
                 </button>
                 <button class="tab-btn" data-tab="exterior">
-                    <i class="fas fa-palette"></i>
                     <span>エクステリア</span>
                 </button>
                 <button class="tab-btn" data-tab="camera">
@@ -115,15 +113,12 @@
                     <div class="view-controls">
                         <div class="view-presets">
                             <button class="view-btn" data-view="front">
-                                <i class="fas fa-car-side fa-rotate-180"></i>
                                 <span>フロント</span>
                             </button>
                             <button class="view-btn" data-view="side">
-                                <i class="fas fa-car-side"></i>
                                 <span>サイド</span>
                             </button>
                             <button class="view-btn" data-view="rear">
-                                <i class="fas fa-car-rear"></i>
                                 <span>リア</span>
                             </button>
                         </div>
@@ -149,19 +144,19 @@
                 <div class="modal-header">
                     <h2>カメラエディター</h2>
                     <button class="modal-close" id="closeModal">
-                        <i class="fas fa-times"></i>
+                        ×
                     </button>
                 </div>
                 <div class="modal-body">
                     <div class="editor-container">
                         <div class="editor-canvas-wrapper">
                             <canvas id="cameraEditor2D" width="400" height="200"></canvas>
-                            <p class="editor-hint"><i class="fas fa-info-circle"></i> キャンバスをクリックしてカメラパスを設定</p>
+                            <p class="editor-hint">キャンバスをクリックしてカメラパスを設定</p>
                         </div>
                         
                         <div class="editor-settings">
                             <div class="settings-group">
-                                <h3><i class="fas fa-arrows-alt-v"></i> 高さ設定</h3>
+                                <h3>高さ設定</h3>
                                 <div class="slider-field">
                                     <label>始点高さ</label>
                                     <input type="range" id="cameraStartHeight" min="0.1" max="5" step="0.1" value="1.5">
@@ -175,7 +170,7 @@
                             </div>
                             
                             <div class="settings-group">
-                                <h3><i class="fas fa-cog"></i> アニメーション設定</h3>
+                                <h3>アニメーション設定</h3>
                                 <div class="slider-field">
                                     <label>速度</label>
                                     <input type="range" id="cameraSpeed" min="0.5" max="5" step="0.1" value="1">
@@ -193,7 +188,7 @@
                             </div>
                             
                             <div class="settings-group">
-                                <h3><i class="fas fa-video"></i> カメラ設定</h3>
+                                <h3>カメラ設定</h3>
                                 <div class="slider-field">
                                     <label>視野角(FOV)</label>
                                     <input type="range" id="cameraFOVEditor" min="20" max="100" step="1" value="30">
@@ -202,7 +197,7 @@
                             </div>
                             
                             <div class="settings-group">
-                                <h3><i class="fas fa-compass"></i> カメラの向き</h3>
+                                <h3>カメラの向き</h3>
                                 <div class="select-field">
                                     <label>モード</label>
                                     <select id="cameraLookMode">
@@ -228,36 +223,36 @@
                             
                             <div class="action-buttons">
                                 <button class="action-btn secondary" id="clearPath">
-                                    <i class="fas fa-trash"></i> クリア
+                                    クリア
                                 </button>
                                 <button class="action-btn primary" id="previewPath">
-                                    <i class="fas fa-eye"></i> プレビュー
+                                    プレビュー
                                 </button>
                                 <button class="action-btn success" id="applyPath">
-                                    <i class="fas fa-check"></i> 適用
+                                    適用
                                 </button>
                             </div>
                             
                             <div class="preset-manager">
-                                <h3><i class="fas fa-bookmark"></i> プリセット</h3>
+                                <h3>プリセット</h3>
                                 <div class="preset-buttons">
                                     <button class="preset-btn" id="preset1" title="サイド">
-                                        <i class="fas fa-car-side"></i> 1
+                                        1
                                     </button>
                                     <button class="preset-btn" id="preset2" title="リア">
-                                        <i class="fas fa-car-rear"></i> 2
+                                        2
                                     </button>
                                     <button class="preset-btn" id="preset3" title="フロント">
-                                        <i class="fas fa-car"></i> 3
+                                        3
                                     </button>
                                     <button class="action-btn secondary small" id="savePreset">
-                                        <i class="fas fa-save"></i> 保存
+                                        保存
                                     </button>
                                 </div>
                             </div>
                             
                             <div class="status-bar">
-                                <p id="editorStatus"><i class="fas fa-mouse-pointer"></i> 始点を選択してください</p>
+                                <p id="editorStatus">始点を選択してください</p>
                             </div>
                         </div>
                     </div>
@@ -271,13 +266,13 @@
                 <div class="modal-header">
                     <h2>ガレージ設定</h2>
                     <button class="modal-close" id="closeGarageModal">
-                        <i class="fas fa-times"></i>
+                        ×
                     </button>
                 </div>
                 <div class="modal-body">
                     <div class="garage-settings-container">
                         <div class="settings-group">
-                            <h3><i class="fas fa-warehouse"></i> ガレージ調整</h3>
+                            <h3>ガレージ調整</h3>
                             <div class="slider-field">
                                 <label>スケール</label>
                                 <input type="range" id="garageScale" min="0.05" max="1.0" step="0.01" value="0.5">
@@ -321,10 +316,10 @@
                         
                         <div class="action-buttons">
                             <button class="action-btn secondary" id="resetGarage">
-                                <i class="fas fa-undo"></i> リセット
+                                リセット
                             </button>
                             <button class="action-btn primary" id="applyGarage">
-                                <i class="fas fa-check"></i> 適用
+                                適用
                             </button>
                         </div>
                     </div>

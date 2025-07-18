@@ -573,9 +573,13 @@ body {
     background: none;
     border: none;
     color: #888;
-    font-size: 24px;
+    font-size: 32px;
     cursor: pointer;
     transition: color 0.3s ease;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+    height: 32px;
 }
 
 .modal-close:hover {
