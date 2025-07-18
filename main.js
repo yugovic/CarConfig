@@ -33,13 +33,17 @@ class CarConfigurator {
             carModel: 'DaimlerV8'
         };
         
+        // 環境に応じてベースパスを設定
+        const isGitHubPages = window.location.hostname.includes('github.io');
+        const basePath = isGitHubPages ? '/CarConfig' : '';
+        
         this.availableCars = {
-            'DaimlerV8': '/CarConfig/Assets/DaimlerV8.glb',
-            'JaguarXJ8': '/CarConfig/Assets/JaguarXJ8.glb',
-            'JaguarXJR': '/CarConfig/Assets/JaguarXJR.glb',
-            'JaguarSuperV8': '/CarConfig/Assets/JaguarSuperV8.glb',
-            'JaguarXJSovereign': '/CarConfig/Assets/JaguarXJSovereign.glb',
-            'JaguarXJSports': '/CarConfig/Assets/JaguarXJSports.glb'
+            'DaimlerV8': `${basePath}/Assets/DaimlerV8.glb`,
+            'JaguarXJ8': `${basePath}/Assets/JaguarXJ8.glb`,
+            'JaguarXJR': `${basePath}/Assets/JaguarXJR.glb`,
+            'JaguarSuperV8': `${basePath}/Assets/JaguarSuperV8.glb`,
+            'JaguarXJSovereign': `${basePath}/Assets/JaguarXJSovereign.glb`,
+            'JaguarXJSports': `${basePath}/Assets/JaguarXJSports.glb`
         };
         
         // ガレージの設定
@@ -49,7 +53,7 @@ class CarConfigurator {
             x: 1.3,
             z: 1.0,
             rotation: 0,
-            shadowFloorY: 0.03  // 影受け床のY位置オフセット
+            shadowFloorY: 0.1  // 影受け床のY位置オフセット
         };
         this.garageModel = null;
         this.shadowFloor = null;  // 影受け専用床の参照
@@ -145,7 +149,7 @@ class CarConfigurator {
         this.scene.add(ambientLight);
         
         // メインの方向光（天窓からの光を模擬）
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
         directionalLight.position.set(2, 10, 2);
         directionalLight.castShadow = true;
         directionalLight.shadow.camera.near = 0.1;
@@ -156,7 +160,7 @@ class CarConfigurator {
         directionalLight.shadow.camera.bottom = -8;
         directionalLight.shadow.mapSize.width = 2048;
         directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.bias = -0.0005;
+        directionalLight.shadow.bias = -0.001;
         this.scene.add(directionalLight);
         
         // 影をデバッグ用に可視化（開発時のみ）
@@ -201,8 +205,11 @@ class CarConfigurator {
     
     loadGarage() {
         const loader = new GLTFLoader();
+        const isGitHubPages = window.location.hostname.includes('github.io');
+        const basePath = isGitHubPages ? '/CarConfig' : '';
+        
         loader.load(
-            '/CarConfig/Assets/ScifiGarage.glb',
+            `${basePath}/Assets/ScifiGarage.glb`,
             (gltf) => {
                 const garage = gltf.scene;
                 this.garageModel = garage;
@@ -320,9 +327,9 @@ class CarConfigurator {
         this.scene.add(gridHelper);
         
         // 影受け専用の透明な大きな床を追加
-        const shadowFloorGeometry = new THREE.PlaneGeometry(15, 15);
+        const shadowFloorGeometry = new THREE.PlaneGeometry(20, 20);
         const shadowFloorMaterial = new THREE.ShadowMaterial({ 
-            opacity: 0.3,
+            opacity: 0.5,
             color: 0x000000,
             transparent: true
         });
