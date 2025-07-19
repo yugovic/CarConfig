@@ -6,7 +6,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Cormorant Garamond', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: #000;
     color: #fff;
     overflow: hidden;
@@ -141,9 +141,11 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 24px;
-    font-weight: 300;
-    letter-spacing: 2px;
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: 3px;
+    text-transform: uppercase;
 }
 
 .logo i {
@@ -223,9 +225,11 @@ body {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    font-size: 11px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    font-weight: 400;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1.5px;
     transition: all 0.3s ease;
     position: relative;
 }
@@ -286,10 +290,11 @@ body {
 }
 
 .panel-title {
-    font-size: 12px;
-    font-weight: 300;
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 400;
     margin-bottom: 8px;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
 }
 
 /* Model Grid */
@@ -322,10 +327,12 @@ body {
 
 
 .model-card h3 {
-    font-size: 12px;
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
     font-weight: 400;
     margin: 0;
     line-height: 1.2;
+    letter-spacing: 0.5px;
 }
 
 /* Color Selection */
@@ -858,8 +865,10 @@ select {
 
 .loading-screen p {
     margin-top: 20px;
-    font-size: 16px;
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
     color: #888;
+    letter-spacing: 1px;
 }
 
 /* Scrollbar */
