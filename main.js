@@ -53,7 +53,7 @@ class CarConfigurator {
             x: 1.3,
             z: 1.0,
             rotation: 0,
-            shadowFloorY: 0.1  // 影受け床のY位置オフセット
+            shadowFloorY: 0.03  // 影受け床のY位置オフセット
         };
         this.garageModel = null;
         this.shadowFloor = null;  // 影受け専用床の参照
@@ -329,7 +329,7 @@ class CarConfigurator {
         // 影受け専用の透明な大きな床を追加
         const shadowFloorGeometry = new THREE.PlaneGeometry(20, 20);
         const shadowFloorMaterial = new THREE.ShadowMaterial({ 
-            opacity: 0.5,
+            opacity: 0.3,
             color: 0x000000,
             transparent: true
         });
