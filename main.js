@@ -30,7 +30,8 @@ class CarConfigurator {
         };
         
         this.currentConfig = {
-            carModel: 'DaimlerV8'
+            carModel: 'DaimlerV8',
+            bodyColor: '#052e1c'  // ブリティッシュグリーン初期値
         };
         
         this.availableCars = {
@@ -703,6 +704,9 @@ class CarConfigurator {
         console.log('Changing paint color to:', color);
         console.log('Paint body parts count:', this.carParts.paintBody.length);
         
+        // 現在の設定を更新
+        this.currentConfig.bodyColor = color;
+        
         if (this.carParts.paintBody.length === 0) {
             console.warn('No paint body parts found. Checking all mesh names...');
             // デバッグ: すべてのメッシュ名を出力
@@ -774,6 +778,9 @@ class CarConfigurator {
             this.camera.position.set(-3, 1.2, -3);
             this.controls.target.set(0, 0.5, 0);
             this.controls.update();
+            
+            // 初期カラーを適用
+            this.changePaintColor(this.currentConfig.bodyColor);
         } else {
             console.error('Model not preloaded:', carName);
         }
@@ -1105,11 +1112,20 @@ class CarConfigurator {
         // カスタムカラーピッカー
         const colorPicker = document.getElementById('bodyColorPicker');
         if (colorPicker) {
+            // 初期値を設定
+            colorPicker.value = this.currentConfig.bodyColor;
+            
             colorPicker.addEventListener('input', (e) => {
                 this.changePaintColor(e.target.value);
                 // アクティブなカラーオプションを解除
                 document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
             });
+        }
+        
+        // 初期カラーオプションをアクティブに
+        const initialColorOption = document.querySelector(`.color-option[data-color="${this.currentConfig.bodyColor}"]`);
+        if (initialColorOption) {
+            initialColorOption.classList.add('active');
         }
         
         // ビューボタン - イベントデリゲーション
