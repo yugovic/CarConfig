@@ -33,17 +33,13 @@ class CarConfigurator {
             carModel: 'DaimlerV8'
         };
         
-        // 環境に応じてベースパスを設定
-        const isGitHubPages = window.location.hostname.includes('github.io');
-        const basePath = isGitHubPages ? '/CarConfig' : '';
-        
         this.availableCars = {
-            'DaimlerV8': `${basePath}/Assets/DaimlerV8.glb`,
-            'JaguarXJ8': `${basePath}/Assets/JaguarXJ8.glb`,
-            'JaguarXJR': `${basePath}/Assets/JaguarXJR.glb`,
-            'JaguarSuperV8': `${basePath}/Assets/JaguarSuperV8.glb`,
-            'JaguarXJSovereign': `${basePath}/Assets/JaguarXJSovereign.glb`,
-            'JaguarXJSports': `${basePath}/Assets/JaguarXJSports.glb`
+            'DaimlerV8': './Assets/DaimlerV8.glb',
+            'JaguarXJ8': './Assets/JaguarXJ8.glb',
+            'JaguarXJR': './Assets/JaguarXJR.glb',
+            'JaguarSuperV8': './Assets/JaguarSuperV8.glb',
+            'JaguarXJSovereign': './Assets/JaguarXJSovereign.glb',
+            'JaguarXJSports': './Assets/JaguarXJSports.glb'
         };
         
         // ガレージの設定
@@ -205,11 +201,8 @@ class CarConfigurator {
     
     loadGarage() {
         const loader = new GLTFLoader();
-        const isGitHubPages = window.location.hostname.includes('github.io');
-        const basePath = isGitHubPages ? '/CarConfig' : '';
-        
         loader.load(
-            `${basePath}/Assets/ScifiGarage.glb`,
+            './Assets/ScifiGarage.glb',
             (gltf) => {
                 const garage = gltf.scene;
                 this.garageModel = garage;
