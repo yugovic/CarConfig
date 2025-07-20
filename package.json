@@ -1,7 +1,7 @@
 {
-  "name": "ferrari-car-configurator",
+  "name": "jaguar-car-configurator",
   "version": "1.0.0",
-  "description": "3D Ferrari Car Configurator using Three.js",
+  "description": "3D Jaguar Car Configurator using Three.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
