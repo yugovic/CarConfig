@@ -50,10 +50,13 @@ class CarConfigurator {
             x: 1.3,
             z: 1.0,
             rotation: 0,
-            shadowFloorY: 0.03  // 影受け床のY位置オフセット
+            shadowFloorY: 0.02,  // 影受け床のY位置オフセット
+            shadowFloorOpacity: 0.5,
+            shadowFloorVisible: true
         };
         this.garageModel = null;
         this.shadowFloor = null;  // 影受け専用床の参照
+        this.shadowFloorMaterial = null;
         
         // カメラ設定
         this.cameraSettings = {
@@ -133,6 +136,12 @@ class CarConfigurator {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        
+        // デバッグ: レンダラーの影設定を確認
+        console.log('Renderer shadow settings:', {
+            enabled: this.renderer.shadowMap.enabled,
+            type: this.renderer.shadowMap.type
+        });
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.2;
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -210,24 +219,53 @@ class CarConfigurator {
                 
                 // ガレージのスケールと位置を初期値で設定
                 this.updateGarageTransform();
+
+                const floorMeshes = [];
                 
-                // 影の設定
+                // 影やマテリアルの設定
                 garage.traverse((child) => {
                     if (child.isMesh) {
-                        // ガレージ全体は影を落とすが受けない（影受けは専用床に任せる）
-                        child.castShadow = true;
-                        child.receiveShadow = false;
-                        
+                        const name = child.name ? child.name.toLowerCase() : '';
+                        const matName = child.material?.name ? child.material.name.toLowerCase() : '';
+                        const isFloorMesh = name.includes('floor') || name.includes('ground') ||
+                            name.includes('base') || matName.includes('floor') || matName.includes('ground');
+
+                        // ガレージは影を落とさず、床メッシュのみ影を受ける
+                        child.castShadow = false;
+                        child.receiveShadow = isFloorMesh;
+
+                        if (isFloorMesh) {
+                            floorMeshes.push(child);
+                        }
+
                         // マテリアルの調整
                         if (child.material) {
                             child.material.envMapIntensity = 0.5;
+                            if ('emissiveIntensity' in child.material) {
+                                child.material.emissiveIntensity = 0.3; // 強い自己発光を抑えて影を見せる
+                            }
+                            if (child.material.emissive) {
+                                child.material.emissive.multiplyScalar(0.3);
+                            }
+                            child.material.needsUpdate = true;
                         }
                     }
                 });
-                
+
                 this.scene.add(garage);
                 console.log('Garage loaded successfully');
-                
+
+                // ガレージモデルの床高さに影床を合わせる
+                let floorBoundingBox = null;
+                if (floorMeshes.length) {
+                    floorBoundingBox = new THREE.Box3();
+                    floorMeshes.forEach(mesh => {
+                        const meshBox = new THREE.Box3().setFromObject(mesh);
+                        floorBoundingBox.union(meshBox);
+                    });
+                }
+                this.alignShadowFloorToGarage(garage, floorBoundingBox);
+
                 // ガレージが読み込まれたら、フォールバックの床とグリッドを非表示
                 if (this.floorMesh) this.floorMesh.visible = false;
                 if (this.gridHelper) this.gridHelper.visible = false;
@@ -267,6 +305,45 @@ class CarConfigurator {
             // スケールも調整（ガレージサイズに合わせる）
             const floorScale = scale * 1.2;
             this.shadowFloor.scale.set(floorScale, floorScale, floorScale);
+            this.applyShadowFloorSettings();
+        }
+    }
+
+    alignShadowFloorToGarage(garage, floorBoundingBox = null) {
+        if (!this.shadowFloor || !garage || !floorBoundingBox) return;
+
+        const referenceBox = floorBoundingBox.clone();
+        // 床の上面に少しだけ浮かせて影を描画
+        const autoShadowY = referenceBox.max.y + 0.01;
+
+        // スライダー範囲外の値は採用しない（初期値を維持）
+        const sliderMin = -0.5;
+        const sliderMax = 0.5;
+        if (autoShadowY < sliderMin || autoShadowY > sliderMax) {
+            console.warn('Auto shadow floor height out of range, keeping current setting:', autoShadowY.toFixed(3));
+            return;
+        }
+
+        if (!Number.isFinite(autoShadowY)) {
+            console.warn('Failed to derive shadow floor height from garage bounding box.');
+            return;
+        }
+
+        this.garageSettings.shadowFloorY = autoShadowY;
+        this.updateGarageTransform();
+        this.updateShadowFloorUI();
+
+        console.log('Shadow floor aligned to garage:', autoShadowY.toFixed(3));
+    }
+
+    applyShadowFloorSettings() {
+        if (!this.shadowFloor) return;
+
+        this.shadowFloor.visible = this.garageSettings.shadowFloorVisible;
+
+        if (this.shadowFloorMaterial) {
+            this.shadowFloorMaterial.opacity = this.garageSettings.shadowFloorOpacity;
+            this.shadowFloorMaterial.needsUpdate = true;
         }
     }
     
@@ -323,16 +400,30 @@ class CarConfigurator {
         // 影受け専用の透明な大きな床を追加
         const shadowFloorGeometry = new THREE.PlaneGeometry(20, 20);
         const shadowFloorMaterial = new THREE.ShadowMaterial({ 
-            opacity: 0.3,
+            opacity: this.garageSettings.shadowFloorOpacity,
             color: 0x000000,
             transparent: true
         });
         this.shadowFloor = new THREE.Mesh(shadowFloorGeometry, shadowFloorMaterial);
+        this.shadowFloorMaterial = shadowFloorMaterial;
         this.shadowFloor.rotation.x = -Math.PI / 2;
         this.shadowFloor.position.y = this.garageSettings.shadowFloorY;
         this.shadowFloor.receiveShadow = true;
-        this.scene.add(this.shadowFloor);
+        this.shadowFloor.renderOrder = 1; // draw after garage floor to ensure shadow visibility
+        this.shadowFloor.material.depthWrite = false;
+        this.shadowFloor.material.needsUpdate = true;
         
+        // デバッグ: 影床の設定を確認
+        console.log('Shadow floor settings:', {
+            position: this.shadowFloor.position.clone(),
+            receiveShadow: this.shadowFloor.receiveShadow,
+            material: shadowFloorMaterial.type,
+            opacity: shadowFloorMaterial.opacity
+        });
+        
+        this.scene.add(this.shadowFloor);
+        this.applyShadowFloorSettings();
+
     }
     
     preloadAllModels() {
@@ -809,6 +900,9 @@ class CarConfigurator {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 
+                // デバッグ: 影設定を確認
+                console.log(`Mesh: ${child.name} - castShadow: ${child.castShadow}, receiveShadow: ${child.receiveShadow}`);
+                
                 const name = child.name.toLowerCase();
                 
                 // マテリアル情報を収集
@@ -1249,6 +1343,9 @@ class CarConfigurator {
         const garageRotationValue = document.getElementById('garageRotationValue');
         const shadowFloorYSlider = document.getElementById('shadowFloorY');
         const shadowFloorYValue = document.getElementById('shadowFloorYValue');
+        const shadowFloorOpacitySlider = document.getElementById('shadowFloorOpacity');
+        const shadowFloorOpacityValue = document.getElementById('shadowFloorOpacityValue');
+        const shadowFloorVisibleToggle = document.getElementById('shadowFloorVisible');
         
         if (garageScaleSlider && garageScaleValue) {
             garageScaleSlider.addEventListener('input', (e) => {
@@ -1303,6 +1400,22 @@ class CarConfigurator {
                 this.updateGarageTransform();
             });
         }
+
+        if (shadowFloorOpacitySlider && shadowFloorOpacityValue) {
+            shadowFloorOpacitySlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.garageSettings.shadowFloorOpacity = value;
+                shadowFloorOpacityValue.textContent = value.toFixed(2);
+                this.applyShadowFloorSettings();
+            });
+        }
+
+        if (shadowFloorVisibleToggle) {
+            shadowFloorVisibleToggle.addEventListener('change', (e) => {
+                this.garageSettings.shadowFloorVisible = e.target.checked;
+                this.applyShadowFloorSettings();
+            });
+        }
         
         // リセットボタン
         const resetButton = document.getElementById('resetGarage');
@@ -1314,7 +1427,9 @@ class CarConfigurator {
                     x: 1.3,
                     z: 1.0,
                     rotation: 0,
-                    shadowFloorY: 0.03
+                    shadowFloorY: 0.02,
+                    shadowFloorOpacity: 0.5,
+                    shadowFloorVisible: true
                 };
                 
                 // スライダーの値を更新
@@ -1330,6 +1445,9 @@ class CarConfigurator {
                 if (garageRotationValue) garageRotationValue.textContent = this.garageSettings.rotation.toFixed(0) + '°';
                 if (shadowFloorYSlider) shadowFloorYSlider.value = this.garageSettings.shadowFloorY;
                 if (shadowFloorYValue) shadowFloorYValue.textContent = this.garageSettings.shadowFloorY.toFixed(2) + 'm';
+                if (shadowFloorOpacitySlider) shadowFloorOpacitySlider.value = this.garageSettings.shadowFloorOpacity;
+                if (shadowFloorOpacityValue) shadowFloorOpacityValue.textContent = this.garageSettings.shadowFloorOpacity.toFixed(2);
+                if (shadowFloorVisibleToggle) shadowFloorVisibleToggle.checked = this.garageSettings.shadowFloorVisible;
                 
                 // カメラFOVもリセット
                 this.cameraSettings.fov = 30;
@@ -1347,9 +1465,10 @@ class CarConfigurator {
                 if (cameraFOVEditorValue) cameraFOVEditorValue.textContent = '30°';
                 
                 this.updateGarageTransform();
+                this.applyShadowFloorSettings();
             });
         }
-        
+
         // 適用ボタン（モーダルを閉じる）
         const applyButton = document.getElementById('applyGarage');
         if (applyButton) {
@@ -1360,6 +1479,19 @@ class CarConfigurator {
                 }
             });
         }
+    }
+
+    updateShadowFloorUI() {
+        const shadowFloorYSlider = document.getElementById('shadowFloorY');
+        const shadowFloorYValue = document.getElementById('shadowFloorYValue');
+        const shadowFloorOpacitySlider = document.getElementById('shadowFloorOpacity');
+        const shadowFloorOpacityValue = document.getElementById('shadowFloorOpacityValue');
+        const shadowFloorVisibleToggle = document.getElementById('shadowFloorVisible');
+        if (shadowFloorYSlider) shadowFloorYSlider.value = this.garageSettings.shadowFloorY;
+        if (shadowFloorYValue) shadowFloorYValue.textContent = this.garageSettings.shadowFloorY.toFixed(2) + 'm';
+        if (shadowFloorOpacitySlider) shadowFloorOpacitySlider.value = this.garageSettings.shadowFloorOpacity;
+        if (shadowFloorOpacityValue) shadowFloorOpacityValue.textContent = this.garageSettings.shadowFloorOpacity.toFixed(2);
+        if (shadowFloorVisibleToggle !== null) shadowFloorVisibleToggle.checked = this.garageSettings.shadowFloorVisible;
     }
     
     setupModalDragging() {

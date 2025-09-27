@@ -660,6 +660,27 @@ body {
     letter-spacing: 1px;
 }
 
+.toggle-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.toggle-field label {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.toggle-field input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #ffffff;
+    cursor: pointer;
+}
+
 .slider-field {
     display: flex;
     align-items: center;

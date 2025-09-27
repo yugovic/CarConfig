@@ -303,8 +303,17 @@
                             </div>
                             <div class="slider-field">
                                 <label>影床の高さ</label>
-                                <input type="range" id="shadowFloorY" min="-0.5" max="0.5" step="0.01" value="0.03">
-                                <span class="value-display" id="shadowFloorYValue">0.03m</span>
+                                <input type="range" id="shadowFloorY" min="-0.5" max="0.5" step="0.01" value="0.02">
+                                <span class="value-display" id="shadowFloorYValue">0.02m</span>
+                            </div>
+                            <div class="slider-field">
+                                <label>影床の濃さ</label>
+                                <input type="range" id="shadowFloorOpacity" min="0" max="1" step="0.05" value="0.50">
+                                <span class="value-display" id="shadowFloorOpacityValue">0.50</span>
+                            </div>
+                            <div class="toggle-field">
+                                <label for="shadowFloorVisible">影床を表示</label>
+                                <input type="checkbox" id="shadowFloorVisible" checked>
                             </div>
                         </div>
                         
