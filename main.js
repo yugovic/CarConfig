@@ -1,1230 +1,807 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import {
+    CARS, COLORS, FINISHES, WHEEL_FINISHES, GLASS_TINTS, ENVIRONMENTS, CAMERA_VIEWS,
+    DEFAULT_CONFIG, STORAGE_KEYS, log, detectDefaultQuality
+} from './src/config.js';
+import {
+    prepareCarModel, disposeMaterials, applyFinish, applyWheelFinish, applyGlassTint, createFlakeNormalMap
+} from './src/materials.js';
+import { createComposer } from './src/postprocessing.js';
+import { readStateFromURL, writeStateToURL, copyShareLink, downloadScreenshot } from './src/share.js';
 
 class CarConfigurator {
     constructor() {
-        console.log('\n\n========== CarConfigurator Constructor Started ==========');
-        console.log('Document readyState:', document.readyState);
-        console.log('Document body:', document.body);
-        
         this.container = document.getElementById('canvas-container');
         this.loadingScreen = document.getElementById('loading');
-        
-        console.log('Canvas container found:', this.container);
-        console.log('Loading screen found:', this.loadingScreen);
-        
+
         this.scene = null;
         this.camera = null;
         this.renderer = null;
         this.controls = null;
+        this.post = null;               // ポストプロセス（高画質時のみ）
+        this.flakeMap = null;           // メタリックフレーク用ノーマルマップ
+
+        // 車両
         this.carModel = null;
-        this.loadedModels = {}; // 読み込み済みモデルを保存
-        this.carParts = {
-            body: [],
-            wheels: [],
-            interior: [],
-            glass: [],
-            paintBody: [] // Add paintBody to carParts
-        };
-        
-        this.currentConfig = {
-            carModel: 'DaimlerV8',
-            bodyColor: '#052e1c'  // ブリティッシュグリーン初期値
-        };
-        
-        this.availableCars = {
-            'DaimlerV8': './Assets/DaimlerV8.glb',
-            'JaguarXJ8': './Assets/JaguarXJ8.glb',
-            'JaguarXJR': './Assets/JaguarXJR.glb',
-            'JaguarSuperV8': './Assets/JaguarSuperV8.glb',
-            'JaguarXJSovereign': './Assets/JaguarXJSovereign.glb',
-            'JaguarXJSports': './Assets/JaguarXJSports.glb'
-        };
-        
-        // ガレージの設定
-        this.garageSettings = {
-            scale: 0.5,
-            height: 0.6,
-            x: 1.3,
-            z: 1.0,
-            rotation: 0,
-            shadowFloorY: 0.03  // 影受け床のY位置オフセット
-        };
+        this.carParts = null;           // 分類済みパーツ
+        this.carMaterials = [];         // 表示中の車で生成したマテリアル（解放用）
+        this.paintMaterial = null;
+        this.loadedModels = {};         // 読み込み済み GLTF シーン
+        this.loadingModels = {};        // 読み込み中の Promise
+        this.availableCars = Object.fromEntries(Object.entries(CARS).map(([k, v]) => [k, v.file]));
+
+        // 設定（URL パラメータで上書き可能）
+        this.currentConfig = { ...DEFAULT_CONFIG, ...readStateFromURL() };
+        this.quality = detectDefaultQuality();
+
+        // 環境
+        this.environmentModels = {};    // 読み込み済みガレージモデル
         this.garageModel = null;
-        this.shadowFloor = null;  // 影受け専用床の参照
-        
-        // カメラ設定
-        this.cameraSettings = {
-            fov: 30
-        };
-        
-        this.cameraPositions = {
-            front: { x: -3, y: 1.2, z: -3 },  // フロントビュー（車の前方）
-            side: { x: 3.5, y: 1.2, z: 0 },
-            rear: { x: 3, y: 1.2, z: 3 }      // リアビュー（車の後方）
-        };
-        
-        this.loadingProgress = {
-            total: Object.keys(this.availableCars).length,
-            loaded: 0
-        };
-        
-        // アニメーション関連のプロパティ
+        this.garageSettings = { ...ENVIRONMENTS[this.currentConfig.environment].transform };
+        this.shadowFloor = null;
+        this.studioFloor = null;
+
+        // カメラ
+        this.cameraSettings = { fov: 30 };
+        this.cameraPositions = CAMERA_VIEWS;
+        this.autoRotateEnabled = true;
+        this.idleDelay = 6000;
+        this.lastInteraction = performance.now();
+        this.firstDisplay = true;
+
+        // ムービー
         this.moviePlaying = false;
         this.animationProgress = 0;
-        this.animationDuration = 30000; // 30秒
+        this.animationDuration = 30000;
         this.animationStartTime = 0;
         this.animationId = null;
-        
-        // カメラエディター関連のプロパティ
+
+        // カメラエディター
         this.cameraEditor = null;
         this.cameraPreviewActive = false;
-        
+
         this.init();
     }
-    
+
     init() {
         this.setupScene();
         this.setupCamera();
         this.setupRenderer();
         this.setupLighting();
         this.setupControls();
-        this.loadEnvironment();
-        this.preloadAllModels();
+        this.setupEnvironmentMap();
+        this.setupFloor();
+        this.flakeMap = createFlakeNormalMap();
+        this.setQuality(this.quality, false);
+
+        this.buildUI();
+        this.setupEventListeners();
+        this.setupCameraEditor();
+        this.initializeUI();
+
+        this.setEnvironment(this.currentConfig.environment);
+        this.loadCars();
         this.animate();
-        
-        // DOMが完全に読み込まれた後にイベントリスナーとUIを初期化
-        console.log('Setting up DOM-dependent features...');
-        console.log('Current readyState:', document.readyState);
-        
-        // 少し遅延させて実行
-        setTimeout(() => {
-            console.log('\n=== Delayed initialization start ===');
-            this.setupEventListeners();
-            this.setupCameraEditor();
-            this.initializeUI();
-            console.log('=== Delayed initialization complete ===\n');
-        }, 100);
     }
-    
+
+    // ------------------------------------------------------------------
+    // シーン構築
+    // ------------------------------------------------------------------
+
     setupScene() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
-        this.scene.fog = new THREE.Fog(0x000000, 10, 50);
-        
+        this.scene.fog = new THREE.Fog(0x000000, 12, 45);
     }
-    
+
     setupCamera() {
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 100);
-        // フロントビューを初期位置に設定
+        this.camera = new THREE.PerspectiveCamera(this.cameraSettings.fov, aspect, 0.1, 100);
         this.camera.position.set(-3, 1.2, -3);
-        console.log('Camera initialized - FOV:', this.camera.fov, 'Position:', this.camera.position.toArray());
+        this.camera.lookAt(0, 0.5, 0);
     }
-    
+
     setupRenderer() {
-        this.renderer = new THREE.WebGLRenderer({ 
+        this.renderer = new THREE.WebGLRenderer({
             antialias: true,
-            alpha: true 
+            powerPreference: 'high-performance'
         });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        // 高DPI端末での負荷を抑える
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.2;
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        
         this.container.appendChild(this.renderer.domElement);
     }
-    
+
     setupLighting() {
-        // ガレージ環境に適した照明
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-        this.scene.add(ambientLight);
-        
-        // メインの方向光（天窓からの光を模擬）
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        directionalLight.position.set(2, 10, 2);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.camera.near = 0.1;
-        directionalLight.shadow.camera.far = 30;
-        directionalLight.shadow.camera.left = -8;
-        directionalLight.shadow.camera.right = 8;
-        directionalLight.shadow.camera.top = 8;
-        directionalLight.shadow.camera.bottom = -8;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.bias = -0.001;
-        this.scene.add(directionalLight);
-        
-        // 影をデバッグ用に可視化（開発時のみ）
-        // const helper = new THREE.CameraHelper(directionalLight.shadow.camera);
-        // this.scene.add(helper);
-        
-        // 車にフォーカスしたスポットライト
-        const spotLight1 = new THREE.SpotLight(0xffffff, 0.7);
-        spotLight1.position.set(-5, 5, 3);
-        spotLight1.target.position.set(0, 0.5, 0);
-        spotLight1.angle = Math.PI / 6;
-        spotLight1.penumbra = 0.5;
-        spotLight1.castShadow = true;
-        spotLight1.shadow.mapSize.width = 1024;
-        spotLight1.shadow.mapSize.height = 1024;
-        this.scene.add(spotLight1);
-        this.scene.add(spotLight1.target);
-        
-        const spotLight2 = new THREE.SpotLight(0xffffff, 0.7);
-        spotLight2.position.set(5, 5, -3);
-        spotLight2.target.position.set(0, 0.5, 0);
-        spotLight2.angle = Math.PI / 6;
-        spotLight2.penumbra = 0.5;
-        spotLight2.castShadow = true;
-        spotLight2.shadow.mapSize.width = 1024;
-        spotLight2.shadow.mapSize.height = 1024;
-        this.scene.add(spotLight2);
-        this.scene.add(spotLight2.target);
-        
-        // ガレージの天井灯風のポイントライト
-        const pointLight1 = new THREE.PointLight(0xffffff, 0.3, 10);
-        pointLight1.position.set(0, 4, 5);
-        this.scene.add(pointLight1);
-        
-        const pointLight2 = new THREE.PointLight(0xffffff, 0.3, 10);
-        pointLight2.position.set(0, 4, -5);
-        this.scene.add(pointLight2);
-        
-        
-        console.log('Lighting setup complete');
+        RectAreaLightUniformsLib.init();
+
+        // 全体の環境光（上下で色味を変える）
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 0.35);
+        this.scene.add(hemi);
+
+        // 主光源。影はこのライトのみが落とす（影付きライトを減らして負荷を抑える）
+        const key = new THREE.DirectionalLight(0xffffff, 1.6);
+        key.position.set(3, 8, 2);
+        key.castShadow = true;
+        key.shadow.camera.near = 0.5;
+        key.shadow.camera.far = 30;
+        key.shadow.camera.left = -6;
+        key.shadow.camera.right = 6;
+        key.shadow.camera.top = 6;
+        key.shadow.camera.bottom = -6;
+        key.shadow.mapSize.set(2048, 2048);
+        key.shadow.bias = -0.0004;
+        key.shadow.normalBias = 0.02;
+        this.scene.add(key);
+        this.keyLight = key;
+
+        // スタジオのソフトボックスを模した面光源。ボディに長いハイライトを作る
+        const overhead = new THREE.RectAreaLight(0xffffff, 5, 5, 1.4);
+        overhead.position.set(0, 3.2, 0);
+        overhead.lookAt(0, 0, 0);
+        this.scene.add(overhead);
+
+        // 側面の面光源。下端が床より上に来る高さに置く（床と交差すると硬い境界が出る）
+        const sideL = new THREE.RectAreaLight(0xffffff, 2.5, 1.4, 2.4);
+        sideL.position.set(-3.8, 1.8, 0);
+        sideL.lookAt(0, 0.6, 0);
+        this.scene.add(sideL);
+
+        const sideR = new THREE.RectAreaLight(0xfff4e6, 2.0, 1.4, 2.4);
+        sideR.position.set(3.8, 1.8, 0);
+        sideR.lookAt(0, 0.6, 0);
+        this.scene.add(sideR);
+
+        // リムライト（車の輪郭を背景から分離する）
+        const rim = new THREE.SpotLight(0xffffff, 6, 15, Math.PI / 5, 0.6, 1);
+        rim.position.set(-2, 4, 5);
+        rim.target.position.set(0, 0.5, 0);
+        this.scene.add(rim);
+        this.scene.add(rim.target);
+
+        log('Lighting setup complete');
     }
-    
-    loadGarage() {
-        const loader = new GLTFLoader();
-        loader.load(
-            './Assets/ScifiGarage.glb',
-            (gltf) => {
-                const garage = gltf.scene;
-                this.garageModel = garage;
-                
-                // ガレージのスケールと位置を初期値で設定
-                this.updateGarageTransform();
-                
-                // 影の設定
-                garage.traverse((child) => {
-                    if (child.isMesh) {
-                        // ガレージ全体は影を落とすが受けない（影受けは専用床に任せる）
-                        child.castShadow = true;
-                        child.receiveShadow = false;
-                        
-                        // マテリアルの調整
-                        if (child.material) {
-                            child.material.envMapIntensity = 0.5;
-                        }
-                    }
-                });
-                
-                this.scene.add(garage);
-                console.log('Garage loaded successfully');
-                
-                // ガレージが読み込まれたら、フォールバックの床とグリッドを非表示
-                if (this.floorMesh) this.floorMesh.visible = false;
-                if (this.gridHelper) this.gridHelper.visible = false;
-            },
-            (progress) => {
-                console.log('Loading garage:', (progress.loaded / progress.total * 100) + '%');
-            },
-            (error) => {
-                console.error('Error loading garage:', error);
-                // エラーの場合はフォールバックの床を表示
-                if (this.floorMesh) this.floorMesh.visible = true;
-                if (this.gridHelper) this.gridHelper.visible = true;
-            }
-        );
-    }
-    
-    updateGarageTransform() {
-        if (!this.garageModel) return;
-        
-        const scale = this.garageSettings.scale;
-        this.garageModel.scale.set(scale, scale, scale);
-        this.garageModel.position.set(
-            this.garageSettings.x,
-            this.garageSettings.height,
-            this.garageSettings.z
-        );
-        this.garageModel.rotation.y = this.garageSettings.rotation * Math.PI / 180;
-        
-        // 影受け床もガレージに合わせて更新
-        if (this.shadowFloor) {
-            this.shadowFloor.position.set(
-                this.garageSettings.x,
-                this.garageSettings.shadowFloorY,
-                this.garageSettings.z
-            );
-            this.shadowFloor.rotation.y = this.garageSettings.rotation * Math.PI / 180;
-            // スケールも調整（ガレージサイズに合わせる）
-            const floorScale = scale * 1.2;
-            this.shadowFloor.scale.set(floorScale, floorScale, floorScale);
-        }
-    }
-    
+
     setupControls() {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
         this.controls.minDistance = 1.5;
         this.controls.maxDistance = 8;
-        this.controls.maxPolarAngle = Math.PI / 2;
+        this.controls.maxPolarAngle = Math.PI / 2 - 0.02;
+        this.controls.autoRotateSpeed = 0.6;
         this.controls.target.set(0, 0.5, 0);
         this.controls.update();
+
+        // 操作があったら自動回転を止める
+        this.controls.addEventListener('start', () => this.noteInteraction());
     }
-    
-    loadEnvironment() {
-        const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-        pmremGenerator.compileEquirectangularShader();
-        
-        new RGBELoader()
-            .load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/equirectangular/quarry_01_1k.hdr', (texture) => {
-                const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-                this.scene.environment = envMap;
-                texture.dispose();
-                pmremGenerator.dispose();
-            });
-        
-        // パーキングガレージを読み込み
-        this.loadGarage();
-        
-        // コンクリート調の床（ガレージモデルがない場合のフォールバック）
-        const floorGeometry = new THREE.PlaneGeometry(20, 20);
-        const floorMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x4a4a4a,
-            roughness: 0.95,
-            metalness: 0.05,
-            normalScale: new THREE.Vector2(0.5, 0.5)
+
+    /** RoomEnvironment を PMREM 化してスタジオ風の反射環境を作る（外部 HDR 不要） */
+    setupEnvironmentMap() {
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        const envScene = new RoomEnvironment();
+        this.scene.environment = pmrem.fromScene(envScene, 0.04).texture;
+        pmrem.dispose();
+    }
+
+    setupFloor() {
+        // スタジオ用の光沢床（ガレージ非表示時のみ表示）
+        const floorGeo = new THREE.CircleGeometry(40, 96);
+        const floorMat = new THREE.MeshPhysicalMaterial({
+            color: 0x0a0a0c,
+            roughness: 0.65,
+            metalness: 0.0,
+            clearcoat: 0.3,
+            clearcoatRoughness: 0.6,
+            // 環境マップの反射を切り、面光源のやわらかい映り込みと車の影だけを見せる
+            envMapIntensity: 0.04
         });
-        
-        const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
-        floorMesh.rotation.x = -Math.PI / 2;
-        floorMesh.receiveShadow = true;
-        floorMesh.visible = false; // ガレージがある場合は非表示
-        this.floorMesh = floorMesh;
-        
-        // グリッドラインを追加（駐車場のライン風）
-        const gridHelper = new THREE.GridHelper(20, 10, 0x555555, 0x333333);
-        gridHelper.position.y = 0.01;
-        gridHelper.visible = false; // ガレージがある場合は非表示
-        this.gridHelper = gridHelper;
-        
-        this.scene.add(floorMesh);
-        this.scene.add(gridHelper);
-        
-        // 影受け専用の透明な大きな床を追加
-        const shadowFloorGeometry = new THREE.PlaneGeometry(20, 20);
-        const shadowFloorMaterial = new THREE.ShadowMaterial({ 
-            opacity: 0.3,
-            color: 0x000000,
-            transparent: true
-        });
-        this.shadowFloor = new THREE.Mesh(shadowFloorGeometry, shadowFloorMaterial);
+        this.studioFloor = new THREE.Mesh(floorGeo, floorMat);
+        this.studioFloor.rotation.x = -Math.PI / 2;
+        this.studioFloor.receiveShadow = true;
+        this.studioFloor.visible = false;
+        this.scene.add(this.studioFloor);
+
+        // 影受け専用の透明な床
+        const shadowGeo = new THREE.PlaneGeometry(20, 20);
+        const shadowMat = new THREE.ShadowMaterial({ opacity: 0.45, color: 0x000000, transparent: true });
+        this.shadowFloor = new THREE.Mesh(shadowGeo, shadowMat);
         this.shadowFloor.rotation.x = -Math.PI / 2;
         this.shadowFloor.position.y = this.garageSettings.shadowFloorY;
         this.shadowFloor.receiveShadow = true;
         this.scene.add(this.shadowFloor);
-        
     }
-    
-    preloadAllModels() {
-        console.log('Starting preload of all car models...');
-        this.updateLoadingText(`Loading car models... 0/${this.loadingProgress.total}`);
-        
-        const promises = Object.entries(this.availableCars).map(([carName, modelPath]) => {
-            return this.preloadModel(carName, modelPath);
-        });
-        
-        Promise.all(promises).then(() => {
-            console.log('All models preloaded successfully!');
-            // 最初の車を表示
-            this.displayCar(this.currentConfig.carModel);
-            this.hideLoading();
-        }).catch((error) => {
-            console.error('Error preloading models:', error);
-            this.hideLoading();
-        });
-    }
-    
-    preloadModel(carName, modelPath) {
-        return new Promise((resolve, reject) => {
-            const loader = new GLTFLoader();
-            
-            loader.load(
-                modelPath,
-                (gltf) => {
-                    // モデルを保存
-                    this.loadedModels[carName] = gltf.scene.clone();
-                    this.loadingProgress.loaded++;
-                    this.updateLoadingText(`Loading car models... ${this.loadingProgress.loaded}/${this.loadingProgress.total}`);
-                    console.log(`Preloaded: ${carName}`);
-                    resolve();
-                },
-                (progress) => {
-                    // 個別の進捗は表示しない
-                },
-                (error) => {
-                    console.error(`Error loading ${carName}:`, error);
-                    reject(error);
+
+    /** 画質モードを切り替える。high はポストプロセス（GTAO・ブルーム・SMAA）を有効化する */
+    setQuality(quality, persist = true) {
+        this.quality = quality;
+        if (quality === 'high') {
+            if (!this.post) {
+                try {
+                    this.post = createComposer(this.renderer, this.scene, this.camera);
+                } catch (e) {
+                    console.error('Post-processing unavailable, falling back to standard quality', e);
+                    this.quality = 'low';
                 }
-            );
-        });
-    }
-    
-    updateLoadingText(text) {
-        const loadingText = this.loadingScreen.querySelector('p');
-        if (loadingText) {
-            loadingText.textContent = text;
+            }
+        } else if (this.post) {
+            this.post.dispose();
+            this.post = null;
+        }
+        if (this.keyLight) {
+            const size = this.quality === 'high' ? 2048 : 1024;
+            if (this.keyLight.shadow.mapSize.x !== size) {
+                this.keyLight.shadow.mapSize.set(size, size);
+                if (this.keyLight.shadow.map) {
+                    this.keyLight.shadow.map.dispose();
+                    this.keyLight.shadow.map = null;
+                }
+            }
+        }
+        const toggle = document.getElementById('qualityToggle');
+        if (toggle) toggle.checked = this.quality === 'high';
+        if (persist) {
+            try { localStorage.setItem(STORAGE_KEYS.quality, this.quality); } catch (e) { /* ignore */ }
         }
     }
-    
-    loadCarModel(modelName = null) {
-        const carToLoad = modelName || this.currentConfig.carModel;
-        const modelPath = this.availableCars[carToLoad];
-        
-        if (!modelPath) {
-            console.error('Invalid car model:', carToLoad);
-            return;
-        }
-        
-        // ローディング画面を表示
-        this.loadingScreen.style.display = 'flex';
-        
-        // 既存の車モデルを削除
-        if (this.carModel) {
-            this.scene.remove(this.carModel);
-            this.carModel = null;
-            this.carParts = {
-                body: [],
-                wheels: [],
-                interior: [],
-                glass: [],
-                paintBody: []
-            };
-        }
-        
-        const loader = new GLTFLoader();
-        
-        loader.load(
-            modelPath,
-            (gltf) => {
-                this.carModel = gltf.scene;
-                
-                // モデルのスケールと位置を調整
-                this.carModel.scale.set(0.5, 0.5, 0.5);
-                this.carModel.position.set(0, 0, 0.5);
-                
-                // デバッグ用：モデル構造をコンソールに出力
-                console.log(`=== ${carToLoad} Model Structure ===`);
-                const modelStructure = [];
-                const materialInfo = [];
-                
-                // モデル内のパーツを分類
-                this.carModel.traverse((child) => {
-                    if (child.isMesh || child.isGroup) {
-                        modelStructure.push({
-                            name: child.name,
-                            type: child.type,
-                            hasMaterial: !!child.material,
-                            materialType: child.material ? child.material.type : 'N/A',
-                            position: child.position.clone(),
-                            parent: child.parent ? child.parent.name : 'root'
-                        });
-                    }
-                    
+
+    // ------------------------------------------------------------------
+    // 環境（スタジオ／ガレージ）
+    // ------------------------------------------------------------------
+
+    loadEnvironmentModel(envId) {
+        const env = ENVIRONMENTS[envId];
+        if (this.environmentModels[envId]) return this.environmentModels[envId];
+        this.environmentModels[envId] = new Promise((resolve, reject) => {
+            new GLTFLoader().load(env.model, (gltf) => {
+                const model = gltf.scene;
+                model.traverse((child) => {
                     if (child.isMesh) {
                         child.castShadow = true;
-                        child.receiveShadow = true;
-                        
-                        const name = child.name.toLowerCase();
-                        
-                        // マテリアル情報を収集
+                        child.receiveShadow = false; // 影受けは専用床に任せる
                         if (child.material) {
-                            const materials = Array.isArray(child.material) ? child.material : [child.material];
-                            materials.forEach((mat, index) => {
-                                materialInfo.push({
-                                    meshName: child.name,
-                                    materialName: mat.name || 'unnamed',
-                                    materialIndex: index,
-                                    materialType: mat.type,
-                                    hasMap: !!mat.map,
-                                    mapType: mat.map ? mat.map.type : 'none',
-                                    color: mat.color ? `#${mat.color.getHexString()}` : 'none',
-                                    metalness: mat.metalness,
-                                    roughness: mat.roughness,
-                                    opacity: mat.opacity,
-                                    transparent: mat.transparent
-                                });
-                            });
-                        }
-                        
-                        // paintBody専用パーツの識別（色変更対象）
-                        // パーツ名またはマテリアル名に"paint"または"ペイント"を含む
-                        let isPaintPart = false;
-                        
-                        if (name.includes('paint') || name.includes('ペイント')) {
-                            isPaintPart = true;
-                        } else if (child.material) {
-                            // マテリアル名をチェック
-                            const materials = Array.isArray(child.material) ? child.material : [child.material];
-                            materials.forEach(mat => {
-                                if (mat.name && (mat.name.toLowerCase().includes('paint') || 
-                                    mat.name.includes('ペイント'))) {
-                                    isPaintPart = true;
-                                    console.log('Found paint material:', mat.name, 'on mesh:', child.name);
-                                }
-                            });
-                        }
-                        
-                        if (isPaintPart) {
-                            this.carParts.paintBody.push(child);
-                            console.log('Paint body part found:', child.name);
-                        }
-                        
-                        // ボディパーツの識別 - より広範な条件で識別
-                        const isBodyPart = name.includes('body') || name.includes('chassis') || 
-                            name.includes('paint') || name.includes('exterior') ||
-                            name.includes('hood') || name.includes('trunk') ||
-                            name.includes('bumper') || name.includes('fender') ||
-                            name.includes('panel') || name.includes('shell') ||
-                            // 除外条件: ガラス、ホイール、インテリア、ライトではない
-                            (!name.includes('glass') && !name.includes('window') && 
-                             !name.includes('wheel') && !name.includes('tire') && 
-                             !name.includes('interior') && !name.includes('seat') &&
-                             !name.includes('light') && !name.includes('lamp') &&
-                             child.material && child.material.color);
-                        
-                        if (isBodyPart) {
-                            this.carParts.body.push(child);
-                            console.log('Body part found:', child.name);
-                        }
-                        
-                        // ドアパーツの識別（新規追加）
-                        if (name.includes('door') || name.includes('ドア')) {
-                            if (!this.carParts.doors) this.carParts.doors = [];
-                            this.carParts.doors.push(child);
-                            console.log('Found door:', child.name);
-                        }
-                        
-                        // ホイールパーツの識別
-                        if (name.includes('wheel') || name.includes('tire') || 
-                            name.includes('rim') || name.includes('alloy')) {
-                            this.carParts.wheels.push(child);
-                            console.log('Wheel part found:', child.name);
-                            
-                            // ホイールのマテリアルを調整
-                            if (child.material) {
-                                const materials = Array.isArray(child.material) ? child.material : [child.material];
-                                materials.forEach((mat, index) => {
-                                    console.log(`- Wheel material ${index}: ${mat.type}, name: ${mat.name}, color: ${mat.color ? mat.color.getHexString() : 'none'}`);
-                                    
-                                    // Rim.003マテリアルの特別処理
-                                    if (mat.name === 'Rim.003') {
-                                        console.log('Found Rim.003 material - applying special metallic treatment');
-                                        mat.color = new THREE.Color(0x707070); // より暗めのグレー
-                                        mat.metalness = 0.95;
-                                        mat.roughness = 0.15;
-                                        mat.envMapIntensity = 1.5;
-                                    }
-                                    // タイヤとリムを区別して処理
-                                    else if (name.includes('tire') || name.includes('tyre')) {
-                                        // タイヤ：黒っぽく
-                                        mat.color = new THREE.Color(0x1a1a1a);
-                                        mat.metalness = 0;
-                                        mat.roughness = 0.9;
-                                    } else if (name.includes('rim') || name.includes('alloy') || name.includes('wheel')) {
-                                        // リム：メタリックに
-                                        mat.color = new THREE.Color(0x888888);
-                                        mat.metalness = 0.9;
-                                        mat.roughness = 0.2;
-                                    }
-                                    mat.needsUpdate = true;
-                                });
-                            }
-                        }
-                        
-                        // インテリアパーツの識別
-                        if (name.includes('interior') || name.includes('seat') || 
-                            name.includes('dashboard') || name.includes('steering')) {
-                            this.carParts.interior.push(child);
-                        }
-                        
-                        // ガラスパーツの識別
-                        if (name.includes('glass') || name.includes('window') || 
-                            name.includes('windshield')) {
-                            this.carParts.glass.push(child);
-                            if (child.material) {
-                                child.material.transparent = true;
-                                child.material.opacity = child.material.opacity || 0.7;
-                            }
-                        }
-                        
-                        // ライトパーツの識別（新規追加）
-                        if (name.includes('light') || name.includes('lamp') ||
-                            name.includes('headlight') || name.includes('taillight')) {
-                            if (!this.carParts.lights) this.carParts.lights = [];
-                            this.carParts.lights.push(child);
+                            child.material.envMapIntensity = env.envMapIntensity ?? 0.5;
                         }
                     }
                 });
-                
-                // モデル構造をコンソールに表示
-                console.table(modelStructure);
-                console.log('Car parts summary:');
-                console.log('- Body parts:', this.carParts.body.length);
-                console.log('- Wheel parts:', this.carParts.wheels.length);
-                console.log('- Interior parts:', this.carParts.interior.length);
-                console.log('- Glass parts:', this.carParts.glass.length);
-                console.log('- Door parts:', this.carParts.doors ? this.carParts.doors.length : 0);
-                console.log('- Light parts:', this.carParts.lights ? this.carParts.lights.length : 0);
-                console.log('- Paint Body parts:', this.carParts.paintBody.length); // Log paintBody parts
-                
-                // マテリアル情報を表示
-                console.log('\n=== Material Information ===');
-                console.table(materialInfo);
-                
-                // テクスチャがない場合の警告
-                const hasTextures = materialInfo.some(mat => mat.hasMap);
-                if (!hasTextures) {
-                    console.warn('警告: このモデルにはテクスチャマップが含まれていません。');
-                }
-                
-                this.scene.add(this.carModel);
-                
-                // Jaguarモデルのマテリアル修正を無効化（不適切な緑色になるため）
-                // if (carToLoad === 'JaguarXJR') {
-                //     console.log('Jaguar XJR用のマテリアル調整を実行中...');
-                //     this.fixJaguarMaterials();
-                // }
-                
-                this.hideLoading();
-                
-                // カメラ位置の調整（フロントビューに）
-                this.camera.position.set(-3, 1.2, -3);
-                this.controls.target.set(0, 0.5, 0);
-                this.controls.update();
-            },
-            (progress) => {
-                const percent = (progress.loaded / progress.total) * 100;
-                console.log(`Loading ${carToLoad}: ${percent.toFixed(0)}%`);
-            },
-            (error) => {
-                console.error(`Error loading ${carToLoad} model:`, error);
-                this.hideLoading();
-                alert('モデルの読み込みに失敗しました。ファイルパスを確認してください。');
-            }
-        );
-    }
-    
-    hideLoading() {
-        setTimeout(() => {
-            this.loadingScreen.style.display = 'none';
-        }, 500);
-    }
-    
-    fixJaguarMaterials() {
-        this.carModel.traverse((child) => {
-            if (child.isMesh && child.material) {
-                const name = child.name.toLowerCase();
-                const materials = Array.isArray(child.material) ? child.material : [child.material];
-                
-                materials.forEach((mat, index) => {
-                    // マテリアルが正しく表示されるように調整
-                    if (mat.type === 'MeshStandardMaterial' || mat.type === 'MeshPhysicalMaterial') {
-                        // ボディパーツの判定
-                        const isBody = name.includes('cube012') && index === 0;
-                        const isChrome = name.includes('cube012') && (index === 1 || index === 2);
-                        const isGlass = mat.transparent || mat.opacity < 1;
-                        const isBrake = name.includes('brake');
-                        const isWheel = name.includes('circle');
-                        
-                        if (isBody) {
-                            // ボディ色をジャガーグリーンに
-                            mat.color = new THREE.Color(0x1B4332);
-                            mat.metalness = 0.9;
-                            mat.roughness = 0.2;
-                        } else if (isChrome) {
-                            // クロームパーツ
-                            mat.color = new THREE.Color(0xffffff);
-                            mat.metalness = 1.0;
-                            mat.roughness = 0.05;
-                        } else if (isGlass) {
-                            // ガラスパーツ
-                            mat.color = new THREE.Color(0x88aaff);
-                            mat.metalness = 0.1;
-                            mat.roughness = 0;
-                            mat.transparent = true;
-                            mat.opacity = 0.4;
-                        } else if (isBrake) {
-                            // ブレーキ
-                            mat.color = new THREE.Color(0xff0000);
-                            mat.metalness = 0.8;
-                            mat.roughness = 0.3;
-                        } else if (isWheel) {
-                            // ホイール
-                            if (mat.metalness > 0.5) {
-                                // リム部分
-                                mat.color = new THREE.Color(0xcccccc);
-                                mat.metalness = 0.95;
-                                mat.roughness = 0.1;
-                            } else {
-                                // タイヤ部分
-                                mat.color = new THREE.Color(0x1a1a1a);
-                                mat.metalness = 0;
-                                mat.roughness = 0.9;
-                            }
-                        } else if (mat.color.getHex() === 0x000000) {
-                            // 純黒色の部分をダークグレーに
-                            mat.color = new THREE.Color(0x1a1a1a);
-                            mat.roughness = 0.8;
-                        }
-                        
-                        // 環境マップの反射を有効化
-                        mat.envMapIntensity = mat.metalness > 0.5 ? 1.5 : 0.5;
-                        
-                        // マテリアルを更新
-                        mat.needsUpdate = true;
-                    }
-                });
-            }
+                model.visible = false;
+                this.scene.add(model);
+                log('Environment loaded:', envId);
+                resolve(model);
+            }, undefined, (error) => {
+                console.error('Error loading environment:', envId, error);
+                delete this.environmentModels[envId];
+                reject(error);
+            });
         });
-        
-        console.log('Jaguarのマテリアル調整が完了しました。');
+        return this.environmentModels[envId];
     }
-    
-    changePaintColor(color) {
-        console.log('Changing paint color to:', color);
-        console.log('Paint body parts count:', this.carParts.paintBody.length);
-        
-        // 現在の設定を更新
-        this.currentConfig.bodyColor = color;
-        
-        if (this.carParts.paintBody.length === 0) {
-            console.warn('No paint body parts found. Checking all mesh names...');
-            // デバッグ: すべてのメッシュ名を出力
-            this.carModel.traverse((child) => {
-                if (child.isMesh) {
-                    console.log('Mesh name:', child.name);
-                }
+
+    async setEnvironment(envId) {
+        const env = ENVIRONMENTS[envId];
+        if (!env) return;
+        this.currentConfig.environment = envId;
+        this.garageSettings = { ...env.transform };
+        this.syncGarageSliders();
+        this.scene.background.set(env.background);
+        this.scene.fog.color.set(env.background);
+        if (env.fog) {
+            this.scene.fog.near = env.fog[0];
+            this.scene.fog.far = env.fog[1];
+        }
+        this.renderer.toneMappingExposure = env.exposure;
+
+        if (this.garageModel) this.garageModel.visible = false;
+        this.garageModel = null;
+        this.studioFloor.visible = !env.model;
+        this.updateGarageTransform();
+        this.updateActiveOption('.env-option', envId, 'env');
+        writeStateToURL(this.currentConfig);
+
+        if (!env.model) return;
+        try {
+            const model = await this.loadEnvironmentModel(envId);
+            if (this.currentConfig.environment !== envId) return; // 読み込み中に切り替わった
+            this.garageModel = model;
+            model.visible = true;
+            this.updateGarageTransform();
+        } catch (e) {
+            // 読み込みに失敗した場合はスタジオにフォールバック
+            this.studioFloor.visible = true;
+        }
+    }
+
+    updateGarageTransform() {
+        const s = this.garageSettings;
+        if (this.garageModel) {
+            this.garageModel.scale.setScalar(s.scale);
+            this.garageModel.position.set(s.x, s.height, s.z);
+            this.garageModel.rotation.y = s.rotation * Math.PI / 180;
+        }
+        if (this.shadowFloor) {
+            const hasGarage = !!this.garageModel;
+            this.shadowFloor.position.set(hasGarage ? s.x : 0, s.shadowFloorY, hasGarage ? s.z : 0);
+            this.shadowFloor.rotation.y = hasGarage ? s.rotation * Math.PI / 180 : 0;
+            const env = ENVIRONMENTS[this.currentConfig.environment];
+            this.shadowFloor.scale.setScalar(env?.shadowScale ?? 1);
+        }
+    }
+
+    /** ガレージ設定モーダルのスライダーを現在値に合わせる */
+    syncGarageSliders() {
+        const s = this.garageSettings;
+        const fields = [
+            ['garageScale', 'garageScaleValue', s.scale, v => v.toFixed(2) + 'x'],
+            ['garageHeight', 'garageHeightValue', s.height, v => v.toFixed(1) + 'm'],
+            ['garageX', 'garageXValue', s.x, v => v.toFixed(1) + 'm'],
+            ['garageZ', 'garageZValue', s.z, v => v.toFixed(1) + 'm'],
+            ['garageRotation', 'garageRotationValue', s.rotation, v => v.toFixed(0) + '°'],
+            ['shadowFloorY', 'shadowFloorYValue', s.shadowFloorY, v => v.toFixed(2) + 'm']
+        ];
+        for (const [sliderId, valueId, value, fmt] of fields) {
+            const slider = document.getElementById(sliderId);
+            const label = document.getElementById(valueId);
+            if (slider) slider.value = value;
+            if (label) label.textContent = fmt(value);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 車両の読み込みと表示
+    // ------------------------------------------------------------------
+
+    loadCarAsset(carName) {
+        if (this.loadedModels[carName]) return Promise.resolve(this.loadedModels[carName]);
+        if (!this.loadingModels[carName]) {
+            const path = this.availableCars[carName];
+            this.loadingModels[carName] = new Promise((resolve, reject) => {
+                new GLTFLoader().load(path, (gltf) => {
+                    this.loadedModels[carName] = gltf.scene;
+                    this.setCardState(carName, 'loaded');
+                    log('Loaded:', carName);
+                    resolve(gltf.scene);
+                }, undefined, (error) => {
+                    console.error(`Error loading ${carName}:`, error);
+                    delete this.loadingModels[carName];
+                    this.setCardState(carName, 'error');
+                    reject(error);
+                });
             });
         }
-        
-        this.carParts.paintBody.forEach(part => {
-            console.log('Updating paint for:', part.name);
-            if (part.material) {
-                // マテリアルが配列の場合も考慮
-                const materials = Array.isArray(part.material) ? part.material : [part.material];
-                materials.forEach((mat, index) => {
-                    console.log(`- Material ${index} type:`, mat.type);
-                    // 直接色を設定
-                    if (mat.color) {
-                        mat.color.set(color);
-                        mat.needsUpdate = true;
-                        console.log('- Color updated to:', color);
-                    }
-                });
-            }
-        });
-        
-        // レンダラーを強制更新
-        if (this.renderer) {
-            this.renderer.render(this.scene, this.camera);
+        return this.loadingModels[carName];
+    }
+
+    /** 選択中の車を最優先で読み込んで表示し、残りは裏で順次読み込む */
+    async loadCars() {
+        const first = this.currentConfig.carModel;
+        this.updateLoadingText(`${CARS[first].name} を読み込み中...`);
+        try {
+            await this.displayCar(first);
+        } catch (e) {
+            this.updateLoadingText('モデルの読み込みに失敗しました');
+            return;
+        }
+        this.hideLoading();
+
+        for (const name of Object.keys(CARS)) {
+            if (name === first) continue;
+            try { await this.loadCarAsset(name); } catch (e) { /* 個別に失敗しても継続 */ }
         }
     }
-    
+
+    updateLoadingText(text) {
+        const loadingText = this.loadingScreen.querySelector('p');
+        if (loadingText) loadingText.textContent = text;
+    }
+
+    hideLoading() {
+        this.loadingScreen.classList.add('hidden');
+        setTimeout(() => { this.loadingScreen.style.display = 'none'; }, 500);
+    }
+
+    setCardState(carName, state) {
+        const card = document.querySelector(`.model-card[data-car="${carName}"]`);
+        if (!card) return;
+        card.classList.remove('loading', 'loaded', 'error');
+        card.classList.add(state);
+    }
+
     changeCar(carName) {
-        if (this.availableCars[carName]) {
-            this.currentConfig.carModel = carName;
-            this.displayCar(carName);
-        }
+        if (!this.availableCars[carName]) return;
+        this.displayCar(carName);
     }
-    
-    displayCar(carName) {
-        // 既存の車モデルを削除
-        if (this.carModel) {
-            this.scene.remove(this.carModel);
-            this.carModel = null;
-            this.carParts = {
-                body: [],
-                wheels: [],
-                interior: [],
-                glass: [],
-                paintBody: []
-            };
-        }
-        
-        // 事前読み込み済みのモデルを使用
-        if (this.loadedModels[carName]) {
-            this.carModel = this.loadedModels[carName].clone();
-            
-            // モデルのスケールと位置を調整
-            this.carModel.scale.set(0.5, 0.5, 0.5);
-            this.carModel.position.set(0, 0, 0.5);
-            
-            // モデル処理
-            this.processCarModel(carName);
-            
-            this.scene.add(this.carModel);
-            
-            // カメラ位置の調整（フロントビューに）
+
+    removeCurrentCar() {
+        if (!this.carModel) return;
+        this.scene.remove(this.carModel);
+        disposeMaterials(this.carMaterials);
+        this.carModel = null;
+        this.carParts = null;
+        this.carMaterials = [];
+        this.paintMaterial = null;
+    }
+
+    async displayCar(carName) {
+        this.currentConfig.carModel = carName;
+        this.updateActiveOption('.model-card', carName, 'car');
+        if (!this.loadedModels[carName]) this.setCardState(carName, 'loading');
+
+        const source = await this.loadCarAsset(carName);
+        if (this.currentConfig.carModel !== carName) return; // 読み込み中に別の車が選ばれた
+
+        this.removeCurrentCar();
+
+        // clone() はジオメトリとマテリアルを共有するため、マテリアルは prepareCarModel 内で複製する
+        this.carModel = source.clone();
+        this.carModel.scale.set(0.5, 0.5, 0.5);
+        this.carModel.position.set(0, 0, 0.5);
+
+        const { parts, materials, paintMaterial } = prepareCarModel(this.carModel, {
+            bodyColor: this.currentConfig.bodyColor,
+            finish: this.currentConfig.finish,
+            wheels: this.currentConfig.wheels,
+            glass: this.currentConfig.glass,
+            flakeMap: this.flakeMap
+        });
+        this.carParts = parts;
+        this.carMaterials = materials;
+        this.paintMaterial = paintMaterial;
+        this.scene.add(this.carModel);
+
+        if (this.firstDisplay) {
+            this.firstDisplay = false;
             this.camera.position.set(-3, 1.2, -3);
             this.controls.target.set(0, 0.5, 0);
             this.controls.update();
-            
-            // 初期カラーを適用
-            this.changePaintColor(this.currentConfig.bodyColor);
-        } else {
-            console.error('Model not preloaded:', carName);
         }
+        this.updateSpecPanel(carName);
+        writeStateToURL(this.currentConfig);
     }
-    
-    processCarModel(carName) {
-        // デバッグ用：モデル構造をコンソールに出力
-        console.log(`=== ${carName} Model Structure ===`);
-        const modelStructure = [];
-        const materialInfo = [];
-        
-        // モデル内のパーツを分類
-        this.carModel.traverse((child) => {
-            if (child.isMesh || child.isGroup) {
-                modelStructure.push({
-                    name: child.name,
-                    type: child.type,
-                    hasMaterial: !!child.material,
-                    materialType: child.material ? child.material.type : 'N/A',
-                    position: child.position.clone(),
-                    parent: child.parent ? child.parent.name : 'root'
-                });
-            }
-            
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-                
-                const name = child.name.toLowerCase();
-                
-                // マテリアル情報を収集
-                if (child.material) {
-                    const materials = Array.isArray(child.material) ? child.material : [child.material];
-                    materials.forEach((mat, index) => {
-                        materialInfo.push({
-                            meshName: child.name,
-                            materialName: mat.name || 'unnamed',
-                            materialIndex: index,
-                            materialType: mat.type,
-                            hasMap: !!mat.map,
-                            mapType: mat.map ? mat.map.type : 'none',
-                            color: mat.color ? `#${mat.color.getHexString()}` : 'none',
-                            metalness: mat.metalness,
-                            roughness: mat.roughness,
-                            opacity: mat.opacity,
-                            transparent: mat.transparent
-                        });
-                    });
-                }
-                
-                // paintBody専用パーツの識別（色変更対象）
-                let isPaintPart = false;
-                
-                if (name.includes('paint') || name.includes('ペイント')) {
-                    isPaintPart = true;
-                } else if (child.material) {
-                    // マテリアル名をチェック
-                    const materials = Array.isArray(child.material) ? child.material : [child.material];
-                    materials.forEach(mat => {
-                        if (mat.name && (mat.name.toLowerCase().includes('paint') || 
-                            mat.name.includes('ペイント'))) {
-                            isPaintPart = true;
-                            console.log('Found paint material:', mat.name, 'on mesh:', child.name);
-                        }
-                    });
-                }
-                
-                if (isPaintPart) {
-                    this.carParts.paintBody.push(child);
-                    console.log('Paint body part found:', child.name);
-                }
-                
-                // ボディパーツの識別
-                const isBodyPart = name.includes('body') || name.includes('chassis') || 
-                    name.includes('paint') || name.includes('exterior') ||
-                    name.includes('hood') || name.includes('trunk') ||
-                    name.includes('bumper') || name.includes('fender') ||
-                    name.includes('panel') || name.includes('shell') ||
-                    (!name.includes('glass') && !name.includes('window') && 
-                     !name.includes('wheel') && !name.includes('tire') && 
-                     !name.includes('interior') && !name.includes('seat') &&
-                     !name.includes('light') && !name.includes('lamp') &&
-                     child.material && child.material.color);
-                
-                if (isBodyPart) {
-                    this.carParts.body.push(child);
-                    console.log('Body part found:', child.name);
-                }
-                
-                // ドアパーツの識別
-                if (name.includes('door') || name.includes('ドア')) {
-                    if (!this.carParts.doors) this.carParts.doors = [];
-                    this.carParts.doors.push(child);
-                    console.log('Found door:', child.name);
-                }
-                
-                // ホイールパーツの識別
-                if (name.includes('wheel') || name.includes('tire') || 
-                    name.includes('rim') || name.includes('alloy')) {
-                    this.carParts.wheels.push(child);
-                    console.log('Wheel part found:', child.name);
-                    
-                    // ホイールのマテリアルを調整
-                    if (child.material) {
-                        const materials = Array.isArray(child.material) ? child.material : [child.material];
-                        materials.forEach((mat, index) => {
-                            console.log(`- Wheel material ${index}: ${mat.type}, name: ${mat.name}, color: ${mat.color ? mat.color.getHexString() : 'none'}`);
-                            
-                            // Rim.003マテリアルの特別処理
-                            if (mat.name === 'Rim.003') {
-                                console.log('Found Rim.003 material - applying special metallic treatment');
-                                mat.color = new THREE.Color(0x707070); // より暗めのグレー
-                                mat.metalness = 0.95;
-                                mat.roughness = 0.15;
-                                mat.envMapIntensity = 1.5;
-                            }
-                            // タイヤとリムを区別して処理
-                            else if (name.includes('tire') || name.includes('tyre')) {
-                                // タイヤ：黒っぽく
-                                mat.color = new THREE.Color(0x1a1a1a);
-                                mat.metalness = 0;
-                                mat.roughness = 0.9;
-                            } else if (name.includes('rim') || name.includes('alloy') || name.includes('wheel')) {
-                                // リム：メタリックに
-                                mat.color = new THREE.Color(0x888888);
-                                mat.metalness = 0.9;
-                                mat.roughness = 0.2;
-                            }
-                            mat.needsUpdate = true;
-                        });
-                    }
-                }
-                
-                // インテリアパーツの識別
-                if (name.includes('interior') || name.includes('seat') || 
-                    name.includes('dashboard') || name.includes('steering')) {
-                    this.carParts.interior.push(child);
-                }
-                
-                // ガラスパーツの識別
-                if (name.includes('glass') || name.includes('window') || 
-                    name.includes('windshield')) {
-                    this.carParts.glass.push(child);
-                    if (child.material) {
-                        child.material.transparent = true;
-                        child.material.opacity = child.material.opacity || 0.7;
-                    }
-                }
-                
-                // ライトパーツの識別
-                if (name.includes('light') || name.includes('lamp') ||
-                    name.includes('headlight') || name.includes('taillight')) {
-                    if (!this.carParts.lights) this.carParts.lights = [];
-                    this.carParts.lights.push(child);
-                }
-            }
-        });
-        
-        // モデル構造をコンソールに表示
-        console.table(modelStructure);
-        console.log('Car parts summary:');
-        console.log('- Body parts:', this.carParts.body.length);
-        console.log('- Wheel parts:', this.carParts.wheels.length);
-        console.log('- Interior parts:', this.carParts.interior.length);
-        console.log('- Glass parts:', this.carParts.glass.length);
-        console.log('- Door parts:', this.carParts.doors ? this.carParts.doors.length : 0);
-        console.log('- Light parts:', this.carParts.lights ? this.carParts.lights.length : 0);
-        console.log('- Paint Body parts:', this.carParts.paintBody.length);
-        
-        // マテリアル情報を表示
-        console.log('\n=== Material Information ===');
-        console.table(materialInfo);
-        
-        // テクスチャがない場合の警告
-        const hasTextures = materialInfo.some(mat => mat.hasMap);
-        if (!hasTextures) {
-            console.warn('警告: このモデルにはテクスチャマップが含まれていません。');
-        }
+
+    // ------------------------------------------------------------------
+    // カスタマイズ
+    // ------------------------------------------------------------------
+
+    changePaintColor(color) {
+        this.currentConfig.bodyColor = color;
+        if (this.paintMaterial) this.paintMaterial.color.set(color);
+        writeStateToURL(this.currentConfig);
     }
-    
-    
-    
+
+    changeFinish(finishId) {
+        if (!FINISHES[finishId]) return;
+        this.currentConfig.finish = finishId;
+        if (this.paintMaterial) applyFinish(this.paintMaterial, finishId, this.flakeMap);
+        this.updateActiveOption('.finish-option', finishId, 'finish');
+        writeStateToURL(this.currentConfig);
+    }
+
+    changeWheelFinish(id) {
+        if (!WHEEL_FINISHES[id]) return;
+        this.currentConfig.wheels = id;
+        if (this.carParts) applyWheelFinish(this.carParts.rim.map(p => p.material), id);
+        this.updateActiveOption('.wheel-option', id, 'wheels');
+        writeStateToURL(this.currentConfig);
+    }
+
+    changeGlassTint(id) {
+        if (!GLASS_TINTS[id]) return;
+        this.currentConfig.glass = id;
+        if (this.carParts) applyGlassTint(this.carParts.glass.map(p => p.material), id);
+        this.updateActiveOption('.glass-option', id, 'glass');
+        writeStateToURL(this.currentConfig);
+    }
+
     setCameraView(view) {
         const position = this.cameraPositions[view];
-        if (position) {
-            this.camera.position.set(position.x, position.y, position.z);
-            this.controls.target.set(0, 0.5, 0);
-            this.controls.update();
-        }
+        if (!position) return;
+        this.noteInteraction();
+        this.camera.position.set(position.x, position.y, position.z);
+        this.controls.target.set(0, 0.5, 0);
+        this.controls.update();
     }
-    
-    setupEventListeners() {
-        console.log('\n=== Setting up event listeners ===');
-        
-        // まず全てのタブボタンを確認
-        const allTabButtons = document.querySelectorAll('.tab-btn');
-        console.log('All tab buttons in DOM:', allTabButtons.length);
-        allTabButtons.forEach((btn, index) => {
-            console.log(`Tab button ${index}: ${btn.dataset.tab}, classes: ${btn.className}`);
-        });
-        
-        // タブナビゲーション - イベントデリゲーションを使用
-        const tabNavigation = document.querySelector('.tab-navigation');
-        console.log('Tab navigation element:', tabNavigation);
-        console.log('Tab navigation HTML:', tabNavigation?.outerHTML.substring(0, 100) + '...');
-        
-        if (tabNavigation) {
-            // 本来のリスナー
-            tabNavigation.addEventListener('click', (e) => {
-                console.log('\n--- Tab navigation clicked ---');
-                console.log('Event target:', e.target);
-                console.log('Event target classes:', e.target.className);
-                
-                const btn = e.target.closest('.tab-btn');
-                console.log('Closest .tab-btn:', btn);
-                
-                if (!btn) {
-                    console.log('No tab button found, returning');
-                    return;
-                }
-                
-                const tabName = btn.dataset.tab;
-                console.log('Tab name from dataset:', tabName);
-                
-                // タブボタンのアクティブ状態を更新
-                const allTabButtons = document.querySelectorAll('.tab-btn');
-                console.log('All tab buttons found:', allTabButtons.length);
-                allTabButtons.forEach(b => {
-                    console.log(`Removing active from: ${b.dataset.tab}`);
-                    b.classList.remove('active');
-                });
-                btn.classList.add('active');
-                console.log('Added active to:', btn.dataset.tab);
-                
-                // タブパネルの表示を切り替え
-                const allPanels = document.querySelectorAll('.tab-panel');
-                console.log('All tab panels found:', allPanels.length);
-                allPanels.forEach(panel => {
-                    console.log(`Panel ${panel.id} - removing active`);
-                    panel.classList.remove('active');
-                });
-                
-                const targetPanelId = `${tabName}-panel`;
-                console.log('Looking for panel with ID:', targetPanelId);
-                const targetPanel = document.getElementById(targetPanelId);
-                console.log('Target panel found:', targetPanel);
-                
-                if (targetPanel) {
-                    targetPanel.classList.add('active');
-                    console.log('Added active class to panel:', targetPanelId);
-                    console.log('Panel classList after:', targetPanel.classList.toString());
-                    
-                    // パネルの表示状態を確認
-                    const computedStyle = window.getComputedStyle(targetPanel);
-                    console.log('Panel display style:', computedStyle.display);
-                    console.log('Panel visibility:', computedStyle.visibility);
-                    console.log('Panel opacity:', computedStyle.opacity);
-                } else {
-                    console.error('Target panel not found!');
-                }
-                
-                console.log('--- Tab switch complete ---\n');
-            });
-        } else {
-            console.error('Tab navigation element not found!');
-        }
-        
-        // デバッグ用のコードは削除し、正常な動作に戻す
-        
-        // ムービーボタン（下部のタブ内）
-        const movieBtn = document.getElementById('playMovie');
-        if (movieBtn) {
-            movieBtn.addEventListener('click', () => {
-                if (this.moviePlaying) {
-                    this.stopMovie();
-                } else {
-                    this.playMovie();
-                }
-            });
-        }
-        
-        // ムービーボタン（右上）
-        const movieBtnTop = document.getElementById('playMovieTop');
-        if (movieBtnTop) {
-            movieBtnTop.addEventListener('click', () => {
-                if (this.moviePlaying) {
-                    this.stopMovie();
-                } else {
-                    this.playMovie();
-                }
-            });
-        }
-        
-        // モデル選択カード - イベントデリゲーション
+
+    noteInteraction() {
+        this.lastInteraction = performance.now();
+        this.controls.autoRotate = false;
+    }
+
+    takeScreenshot() {
+        const color = this.currentConfig.bodyColor.replace('#', '');
+        const name = `jaguar-${this.currentConfig.carModel}-${color}.png`;
+        downloadScreenshot(this.renderer.domElement, () => this.renderFrame(), name);
+    }
+
+    async shareLink() {
+        const ok = await copyShareLink(this.currentConfig);
+        this.showToast(ok ? 'リンクをコピーしました' : 'リンクを表示しました');
+    }
+
+    showToast(message) {
+        const toast = document.getElementById('toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    // ------------------------------------------------------------------
+    // UI
+    // ------------------------------------------------------------------
+
+    /** 設定データから選択 UI を生成する */
+    buildUI() {
         const modelGrid = document.querySelector('.model-grid');
         if (modelGrid) {
-            modelGrid.addEventListener('click', (e) => {
-                const card = e.target.closest('.model-card');
-                if (!card) return;
-                
-                console.log('Model card clicked:', card.dataset.car);
-                document.querySelectorAll('.model-card').forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
-                this.changeCar(card.dataset.car);
-            });
+            modelGrid.innerHTML = Object.entries(CARS).map(([id, car]) => `
+                <div class="model-card" data-car="${id}" role="button" tabindex="0">
+                    <h3>${car.name}</h3>
+                    <p class="model-spec">${car.engine} · ${car.power}</p>
+                </div>`).join('');
         }
-        
-        // カラーオプション - イベントデリゲーション
+
         const colorGrid = document.querySelector('.color-grid');
         if (colorGrid) {
-            colorGrid.addEventListener('click', (e) => {
+            colorGrid.innerHTML = COLORS.map(c => `
+                <div class="color-option" data-color="${c.hex}" data-finish="${c.finish}" title="${c.name}" role="button" tabindex="0">
+                    <div class="color-circle" style="background-color: ${c.hex};"></div>
+                    <span>${c.name}</span>
+                </div>`).join('');
+        }
+
+        const pill = (cls, id, label, extraStyle = '') =>
+            `<button class="pill ${cls}" data-id="${id}" ${extraStyle}>${label}</button>`;
+
+        const finishRow = document.querySelector('.finish-options');
+        if (finishRow) {
+            finishRow.innerHTML = Object.entries(FINISHES).map(([id, f]) => pill('finish-option', id, f.name)).join('');
+        }
+        const wheelRow = document.querySelector('.wheel-options');
+        if (wheelRow) {
+            wheelRow.innerHTML = Object.entries(WHEEL_FINISHES).map(([id, w]) =>
+                `<button class="pill wheel-option" data-id="${id}"><span class="swatch" style="background:${w.color}"></span>${w.name}</button>`).join('');
+        }
+        const glassRow = document.querySelector('.glass-options');
+        if (glassRow) {
+            glassRow.innerHTML = Object.entries(GLASS_TINTS).map(([id, g]) =>
+                `<button class="pill glass-option" data-id="${id}"><span class="swatch" style="background:${g.color}"></span>${g.name}</button>`).join('');
+        }
+        const envRow = document.querySelector('.env-options');
+        if (envRow) {
+            envRow.innerHTML = Object.entries(ENVIRONMENTS).map(([id, e]) => pill('env-option', id, e.name)).join('');
+        }
+    }
+
+    updateActiveOption(selector, id, attr) {
+        document.querySelectorAll(selector).forEach(el => {
+            el.classList.toggle('active', el.dataset[attr === 'car' ? 'car' : (attr === 'color' ? 'color' : 'id')] === id);
+        });
+    }
+
+    updateSpecPanel(carName) {
+        const car = CARS[carName];
+        const panel = document.getElementById('specPanel');
+        if (!car || !panel) return;
+        panel.innerHTML = `
+            <h3>${car.name}</h3>
+            <dl>
+                <dt>年式</dt><dd>${car.years}</dd>
+                <dt>エンジン</dt><dd>${car.engine}</dd>
+                <dt>最高出力</dt><dd>${car.power}</dd>
+                <dt>特徴</dt><dd>${car.note}</dd>
+            </dl>
+            <p class="spec-note">※ 参考値</p>`;
+    }
+
+    initializeUI() {
+        const modelTab = document.querySelector('.tab-btn[data-tab="models"]');
+        const modelPanel = document.getElementById('models-panel');
+        if (modelTab && modelPanel) {
+            modelTab.classList.add('active');
+            modelPanel.classList.add('active');
+        }
+
+        const c = this.currentConfig;
+        this.updateActiveOption('.model-card', c.carModel, 'car');
+        this.updateActiveOption('.color-option', c.bodyColor, 'color');
+        this.updateActiveOption('.finish-option', c.finish, 'finish');
+        this.updateActiveOption('.wheel-option', c.wheels, 'wheels');
+        this.updateActiveOption('.glass-option', c.glass, 'glass');
+        this.updateActiveOption('.env-option', c.environment, 'env');
+
+        const colorPicker = document.getElementById('bodyColorPicker');
+        if (colorPicker) colorPicker.value = c.bodyColor;
+
+        const rotateToggle = document.getElementById('autoRotateToggle');
+        if (rotateToggle) rotateToggle.checked = this.autoRotateEnabled;
+
+        this.updateSpecPanel(c.carModel);
+        this.syncGarageSliders();
+    }
+
+    setupEventListeners() {
+        const container = document.querySelector('.configurator-container');
+
+        // タブ切り替え。タッチ端末では hover が効かないため、クリックで開閉もする
+        const tabNavigation = document.querySelector('.tab-navigation');
+        if (tabNavigation) {
+            tabNavigation.addEventListener('click', (e) => {
+                const btn = e.target.closest('.tab-btn');
+                if (!btn) return;
+                const tabName = btn.dataset.tab;
+                const wasActive = btn.classList.contains('active');
+                if (wasActive && container.classList.contains('open')) {
+                    container.classList.remove('open');
+                    return;
+                }
+                container.classList.add('open');
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                const targetPanel = document.getElementById(`${tabName}-panel`);
+                if (targetPanel) targetPanel.classList.add('active');
+            });
+        }
+        // キャンバス操作でパネルを閉じる
+        this.renderer.domElement.addEventListener('pointerdown', () => {
+            container?.classList.remove('open');
+            this.closeDevMenu();
+        });
+
+        // ムービー
+        for (const id of ['playMovie', 'playMovieTop']) {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    if (this.moviePlaying) this.stopMovie(); else this.playMovie();
+                });
+            }
+        }
+
+        // モデル選択
+        const modelGrid = document.querySelector('.model-grid');
+        if (modelGrid) {
+            const select = (e) => {
+                const card = e.target.closest('.model-card');
+                if (!card) return;
+                this.changeCar(card.dataset.car);
+            };
+            modelGrid.addEventListener('click', select);
+            modelGrid.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(e); } });
+        }
+
+        // カラー
+        const colorGrid = document.querySelector('.color-grid');
+        if (colorGrid) {
+            const select = (e) => {
                 const option = e.target.closest('.color-option');
                 if (!option) return;
-                
-                console.log('Color option clicked:', option.dataset.color);
                 const color = option.dataset.color;
-                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
-                option.classList.add('active');
+                this.updateActiveOption('.color-option', color, 'color');
                 this.changePaintColor(color);
-                
-                // カラーピッカーも更新
+                // プリセットカラーには推奨の仕上げを合わせる
+                if (option.dataset.finish) this.changeFinish(option.dataset.finish);
                 const colorPicker = document.getElementById('bodyColorPicker');
-                if (colorPicker) {
-                    colorPicker.value = color;
-                }
-            });
+                if (colorPicker) colorPicker.value = color;
+            };
+            colorGrid.addEventListener('click', select);
+            colorGrid.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(e); } });
         }
-        
-        // カスタムカラーピッカー
+
         const colorPicker = document.getElementById('bodyColorPicker');
         if (colorPicker) {
-            // 初期値を設定
-            colorPicker.value = this.currentConfig.bodyColor;
-            
             colorPicker.addEventListener('input', (e) => {
                 this.changePaintColor(e.target.value);
-                // アクティブなカラーオプションを解除
                 document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
             });
         }
-        
-        // 初期カラーオプションをアクティブに
-        const initialColorOption = document.querySelector(`.color-option[data-color="${this.currentConfig.bodyColor}"]`);
-        if (initialColorOption) {
-            initialColorOption.classList.add('active');
-        }
-        
-        // ビューボタン - イベントデリゲーション
+
+        // 仕上げ・ホイール・ガラス・環境
+        const bindPills = (selector, handler) => {
+            const row = document.querySelector(selector);
+            if (!row) return;
+            row.addEventListener('click', (e) => {
+                const btn = e.target.closest('.pill');
+                if (btn) handler(btn.dataset.id);
+            });
+        };
+        bindPills('.finish-options', id => this.changeFinish(id));
+        bindPills('.wheel-options', id => this.changeWheelFinish(id));
+        bindPills('.glass-options', id => this.changeGlassTint(id));
+        bindPills('.env-options', id => this.setEnvironment(id));
+
+        // ビュー
         const viewPresets = document.querySelector('.view-presets');
         if (viewPresets) {
             viewPresets.addEventListener('click', (e) => {
                 const btn = e.target.closest('.view-btn');
-                if (!btn) return;
-                
-                console.log('View button clicked:', btn.dataset.view);
-                this.setCameraView(btn.dataset.view);
+                if (btn) this.setCameraView(btn.dataset.view);
             });
         }
-        
+
+        const rotateToggle = document.getElementById('autoRotateToggle');
+        if (rotateToggle) {
+            rotateToggle.addEventListener('change', (e) => {
+                this.autoRotateEnabled = e.target.checked;
+                this.noteInteraction();
+            });
+        }
+
+        const qualityToggle = document.getElementById('qualityToggle');
+        if (qualityToggle) {
+            qualityToggle.checked = this.quality === 'high';
+            qualityToggle.addEventListener('change', (e) => this.setQuality(e.target.checked ? 'high' : 'low'));
+        }
+
+        // 共有・スクリーンショット
+        document.getElementById('shareLink')?.addEventListener('click', () => this.shareLink());
+        document.getElementById('screenshotBtn')?.addEventListener('click', () => this.takeScreenshot());
+
+        // 開発者メニュー
+        const devMenuBtn = document.getElementById('devMenuBtn');
+        const devMenu = document.getElementById('devMenu');
+        if (devMenuBtn && devMenu) {
+            devMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                devMenu.classList.toggle('open');
+            });
+            devMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('[data-action]');
+                if (!item) return;
+                this.closeDevMenu();
+                if (item.dataset.action === 'camera-editor') this.openModal('editorModal');
+                if (item.dataset.action === 'garage') this.openModal('garageModal');
+            });
+            document.addEventListener('click', (e) => {
+                if (!devMenu.contains(e.target) && e.target !== devMenuBtn) this.closeDevMenu();
+            });
+        }
+
         window.addEventListener('resize', () => {
             const width = this.container.clientWidth;
             const height = this.container.clientHeight;
-            
             this.camera.aspect = width / height;
             this.camera.updateProjectionMatrix();
-            
             this.renderer.setSize(width, height);
+            if (this.post) this.post.setSize(width, height);
         });
-        
-        // キーボードショートカット
+
+        // キーボードショートカット（入力中は無視）
         window.addEventListener('keydown', (e) => {
-            if (e.ctrlKey) {
-                if (e.key === 'c') {
-                    e.preventDefault(); // コピー操作を無効化
-                    const modal = document.getElementById('editorModal');
-                    if (modal) {
-                        modal.classList.add('active');
-                        // エディターを初期化（まだ初期化されていない場合）
-                        if (!this.cameraEditor) {
-                            this.setupCameraEditor();
-                        }
-                    }
-                } else if (e.key === 'g') {
-                    e.preventDefault();
-                    const garageModal = document.getElementById('garageModal');
-                    if (garageModal) {
-                        garageModal.classList.add('active');
-                    }
-                }
-            }
+            const tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+            if (e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); this.openModal('editorModal'); }
+            else if (e.shiftKey && e.key.toLowerCase() === 'g') { e.preventDefault(); this.openModal('garageModal'); }
+            else if (e.key === 'Escape') { this.closeModal('editorModal'); this.closeModal('garageModal'); }
+            else if (e.key === '1') this.setCameraView('front');
+            else if (e.key === '2') this.setCameraView('side');
+            else if (e.key === '3') this.setCameraView('rear');
         });
-        
-        // モーダルを閉じる
-        const closeModal = document.getElementById('closeModal');
-        if (closeModal) {
-            closeModal.addEventListener('click', () => {
-                const modal = document.getElementById('editorModal');
-                if (modal) {
-                    modal.classList.remove('active');
-                }
-            });
+
+        // モーダル
+        document.getElementById('closeModal')?.addEventListener('click', () => this.closeModal('editorModal'));
+        document.getElementById('closeGarageModal')?.addEventListener('click', () => this.closeModal('garageModal'));
+        for (const id of ['editorModal', 'garageModal']) {
+            const modal = document.getElementById(id);
+            modal?.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
         }
-        
-        // カメラエディターモーダルのドラッグ機能を設定
         this.setupModalDragging();
-        
-        // モーダル背景クリックで閉じる
-        const editorModal = document.getElementById('editorModal');
-        if (editorModal) {
-            editorModal.addEventListener('click', (e) => {
-                if (e.target === editorModal) {
-                    editorModal.classList.remove('active');
-                }
-            });
-        }
-        
-        // ガレージモーダルを閉じる
-        const closeGarageModal = document.getElementById('closeGarageModal');
-        if (closeGarageModal) {
-            closeGarageModal.addEventListener('click', () => {
-                const modal = document.getElementById('garageModal');
-                if (modal) {
-                    modal.classList.remove('active');
-                }
-            });
-        }
-        
-        // ガレージモーダル背景クリックで閉じる
-        const garageModal = document.getElementById('garageModal');
-        if (garageModal) {
-            garageModal.addEventListener('click', (e) => {
-                if (e.target === garageModal) {
-                    garageModal.classList.remove('active');
-                }
-            });
-        }
-        
-        // ガレージコントロール
         this.setupGarageControls();
-        
-        // カメラFOVコントロール
+
+        // カメラFOV
         const cameraFOVSlider = document.getElementById('cameraFOV');
         const cameraFOVValue = document.getElementById('cameraFOVValue');
-        
         if (cameraFOVSlider && cameraFOVValue) {
             cameraFOVSlider.addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value);
@@ -1235,7 +812,45 @@ class CarConfigurator {
             });
         }
     }
-    
+
+    openModal(id) {
+        const modal = document.getElementById(id);
+        if (!modal) return;
+        modal.classList.add('active');
+        if (id === 'editorModal' && !this.cameraEditor) this.setupCameraEditor();
+    }
+
+    closeModal(id) {
+        document.getElementById(id)?.classList.remove('active');
+    }
+
+    closeDevMenu() {
+        document.getElementById('devMenu')?.classList.remove('open');
+    }
+
+    // ------------------------------------------------------------------
+    // 描画ループ
+    // ------------------------------------------------------------------
+
+    renderFrame() {
+        if (this.post) this.post.render();
+        else this.renderer.render(this.scene, this.camera);
+    }
+
+    animate() {
+        requestAnimationFrame(() => this.animate());
+
+        const interactive = !this.cameraPreviewActive && !this.moviePlaying;
+        if (interactive) {
+            if (this.autoRotateEnabled && !this.controls.autoRotate &&
+                performance.now() - this.lastInteraction > this.idleDelay) {
+                this.controls.autoRotate = true;
+            }
+            this.controls.update();
+        }
+        this.renderFrame();
+    }
+
     setupGarageControls() {
         const garageScaleSlider = document.getElementById('garageScale');
         const garageScaleValue = document.getElementById('garageScaleValue');
@@ -1308,14 +923,7 @@ class CarConfigurator {
         const resetButton = document.getElementById('resetGarage');
         if (resetButton) {
             resetButton.addEventListener('click', () => {
-                this.garageSettings = {
-                    scale: 0.5,
-                    height: 0.6,
-                    x: 1.3,
-                    z: 1.0,
-                    rotation: 0,
-                    shadowFloorY: 0.03
-                };
+                this.garageSettings = { ...ENVIRONMENTS[this.currentConfig.environment].transform };
                 
                 // スライダーの値を更新
                 if (garageScaleSlider) garageScaleSlider.value = this.garageSettings.scale;
@@ -1711,7 +1319,7 @@ class CarConfigurator {
         if (presetIndex !== this.currentPresetIndex && presetIndex < 3) {
             this.currentPresetIndex = presetIndex;
             this.presetStartTime = currentTime;
-            console.log(`Switching to preset ${presetIndex + 1}`);
+            log(`Switching to preset ${presetIndex + 1}`);
         }
         
         // 現在のプリセット内での進行状況を計算
@@ -1771,9 +1379,9 @@ class CarConfigurator {
                          Math.abs(progress - 1) < 0.01;
         
         if (shouldLog) {
-            console.log(`\n=== ${preset.name} - Progress: ${progress.toFixed(2)} ===`);
-            console.log(`Camera position: x=${x.toFixed(3)}, y=${y.toFixed(3)}, z=${z.toFixed(3)}`);
-            console.log(`Look mode: ${preset.cameraLookMode}, Pan: ${preset.cameraPan}°, Tilt: ${preset.cameraTilt}°`);
+            log(`\n=== ${preset.name} - Progress: ${progress.toFixed(2)} ===`);
+            log(`Camera position: x=${x.toFixed(3)}, y=${y.toFixed(3)}, z=${z.toFixed(3)}`);
+            log(`Look mode: ${preset.cameraLookMode}, Pan: ${preset.cameraPan}°, Tilt: ${preset.cameraTilt}°`);
         }
         
         // カメラの向きを設定（previewCameraPathと同じロジックを使用）
@@ -1822,8 +1430,8 @@ class CarConfigurator {
                 }
                 
                 if (shouldLog) {
-                    console.log(`LookAt target: x=${lookX.toFixed(3)}, y=${lookY.toFixed(3)}, z=${lookZ.toFixed(3)}`);
-                    console.log(`Camera forward vector:`, this.camera.getWorldDirection(new THREE.Vector3()).toArray().map(v => v.toFixed(3)));
+                    log(`LookAt target: x=${lookX.toFixed(3)}, y=${lookY.toFixed(3)}, z=${lookZ.toFixed(3)}`);
+                    log(`Camera forward vector:`, this.camera.getWorldDirection(new THREE.Vector3()).toArray().map(v => v.toFixed(3)));
                 }
                 break;
             default:
@@ -1982,49 +1590,37 @@ class CarConfigurator {
     }
     
     initializeUI() {
-        console.log('\n=== Initializing UI ===');
+        log('\n=== Initializing UI ===');
         
         // デフォルトでモデルタブをアクティブに
         const modelTab = document.querySelector('.tab-btn[data-tab="models"]');
         const modelPanel = document.getElementById('models-panel');
-        console.log('Model tab found:', modelTab);
-        console.log('Model panel found:', modelPanel);
+        log('Model tab found:', modelTab);
+        log('Model panel found:', modelPanel);
         
         if (modelTab && modelPanel) {
             modelTab.classList.add('active');
             modelPanel.classList.add('active');
-            console.log('Set model tab and panel as active');
+            log('Set model tab and panel as active');
         }
         
         // すべてのタブパネルの状態を確認
         const allPanels = document.querySelectorAll('.tab-panel');
-        console.log('\nAll panels status:');
+        log('\nAll panels status:');
         allPanels.forEach(panel => {
-            console.log(`Panel ${panel.id}: classes = ${panel.classList.toString()}`);
+            log(`Panel ${panel.id}: classes = ${panel.classList.toString()}`);
         });
         
         // 初期カラーオプションをアクティブに
         const firstColorOption = document.querySelector('.color-option');
         if (firstColorOption) {
             firstColorOption.classList.add('active');
-            console.log('Set first color option as active');
+            log('Set first color option as active');
         }
         
-        console.log('=== UI Initialization complete ===\n');
+        log('=== UI Initialization complete ===\n');
     }
     
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        
-        // プレビュー中またはムービー再生中でない場合のみコントロールを更新
-        if (!this.cameraPreviewActive && !this.moviePlaying) {
-            this.controls.update();
-        }
-        
-        // 車の自動回転を削除
-        
-        this.renderer.render(this.scene, this.camera);
-    }
     
     previewCameraPath(pathConfig) {
         if (this.moviePlaying) {
@@ -2065,12 +1661,12 @@ class CarConfigurator {
             
             // 詳細なデバッグログ
             if (t === 0 || Math.abs(t - 0.25) < 0.01 || Math.abs(t - 0.5) < 0.01 || Math.abs(t - 0.75) < 0.01 || Math.abs(t - 1) < 0.01) {
-                console.log(`\n=== Camera Animation Debug t=${t.toFixed(2)} ===`);
-                console.log(`Interpolated position: x=${x.toFixed(3)}, y=${y.toFixed(3)}, z=${z.toFixed(3)}`);
-                console.log(`Start height: ${pathConfig.start.y}, End height: ${pathConfig.end.y}`);
-                console.log(`Camera world position:`, this.camera.position.toArray().map(v => v.toFixed(3)));
-                console.log(`Camera FOV: ${this.camera.fov}°`);
-                console.log(`Camera near/far: ${this.camera.near}/${this.camera.far}`);
+                log(`\n=== Camera Animation Debug t=${t.toFixed(2)} ===`);
+                log(`Interpolated position: x=${x.toFixed(3)}, y=${y.toFixed(3)}, z=${z.toFixed(3)}`);
+                log(`Start height: ${pathConfig.start.y}, End height: ${pathConfig.end.y}`);
+                log(`Camera world position:`, this.camera.position.toArray().map(v => v.toFixed(3)));
+                log(`Camera FOV: ${this.camera.fov}°`);
+                log(`Camera near/far: ${this.camera.near}/${this.camera.far}`);
             }
             
             this.camera.position.set(x, y, z);
@@ -2128,8 +1724,8 @@ class CarConfigurator {
                 if (this.cameraEditor) {
                     this.cameraEditor.draw(); // エディターを更新
                 }
-                console.log('\n=== Camera Animation Complete ===');
-                console.log('Final camera position:', this.camera.position.toArray().map(v => v.toFixed(3)));
+                log('\n=== Camera Animation Complete ===');
+                log('Final camera position:', this.camera.position.toArray().map(v => v.toFixed(3)));
             }
         };
         
@@ -2202,6 +1798,7 @@ class CameraEditor2D {
         };
         
         this.currentPresetSlot = null;
+        this.loadStoredPresets();
         
         // キャンバスのスケール設定
         this.scale = 30; // キャンバスサイズに合わせて調整
@@ -2537,12 +2134,12 @@ class CameraEditor2D {
         }
         
         // カメラアニメーションのプレビュー実行
-        console.log('\n========== PREVIEW PATH START ==========');
-        console.log('Start height:', this.cameraStartHeight, 'End height:', this.cameraEndHeight);
-        console.log('Start position:', this.startPoint);
-        console.log('End position:', this.endPoint);
-        console.log('Look mode:', this.cameraLookMode);
-        console.log('========================================\n');
+        log('\n========== PREVIEW PATH START ==========');
+        log('Start height:', this.cameraStartHeight, 'End height:', this.cameraEndHeight);
+        log('Start position:', this.startPoint);
+        log('End position:', this.endPoint);
+        log('Look mode:', this.cameraLookMode);
+        log('========================================\n');
         
         const pathConfig = {
             start: { ...this.startPoint, y: this.cameraStartHeight },
@@ -2585,7 +2182,7 @@ class CameraEditor2D {
             };
         }
         
-        console.log('Camera path configuration:', JSON.stringify(pathConfig, null, 2));
+        log('Camera path configuration:', JSON.stringify(pathConfig, null, 2));
         alert('カメラパスが適用されました（コンソールに設定が出力されています）');
     }
     
@@ -2667,8 +2264,33 @@ class CameraEditor2D {
             fov: this.carConfigurator.cameraSettings.fov
         };
         
+        this.storePresets();
         alert(`プリセット${this.currentPresetSlot}に保存しました`);
         this.updateStatus(`プリセット${this.currentPresetSlot}に保存しました`);
+    }
+    
+    /** localStorage に保存済みのプリセットがあれば上書き読み込みする */
+    loadStoredPresets() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEYS.presets);
+            if (!raw) return;
+            const stored = JSON.parse(raw);
+            for (const slot of [1, 2, 3]) {
+                if (stored[slot] && stored[slot].startPoint && stored[slot].endPoint) {
+                    this.presets[slot] = { ...this.presets[slot], ...stored[slot] };
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load camera presets', e);
+        }
+    }
+    
+    storePresets() {
+        try {
+            localStorage.setItem(STORAGE_KEYS.presets, JSON.stringify(this.presets));
+        } catch (e) {
+            console.warn('Failed to store camera presets', e);
+        }
     }
     
     updatePresetButtonStyles(activeSlot = null) {
@@ -2708,9 +2330,9 @@ class CameraEditor2D {
         // UIを更新
         this.updateUIValues();
         
-        console.log('\n=== LOW HEIGHT TEST ===');
-        console.log('Heights: 0.1m -> 0.3m');
-        console.log('====================\n');
+        log('\n=== LOW HEIGHT TEST ===');
+        log('Heights: 0.1m -> 0.3m');
+        log('====================\n');
         
         this.updateStatus('低高度テスト設定を適用しました');
         this.draw();
@@ -2732,9 +2354,9 @@ class CameraEditor2D {
         // UIを更新
         this.updateUIValues();
         
-        console.log('\n=== HIGH HEIGHT TEST ===');
-        console.log('Heights: 1.0m -> 5.0m');
-        console.log('====================\n');
+        log('\n=== HIGH HEIGHT TEST ===');
+        log('Heights: 1.0m -> 5.0m');
+        log('====================\n');
         
         this.updateStatus('高高度テスト設定を適用しました');
         this.draw();
@@ -2774,11 +2396,5 @@ class CameraEditor2D {
     }
 }
 
-// モジュールスクリプトはデフォルトでdeferされるので、DOMが準備できている
-console.log('\n========== MAIN.JS LOADED ==========');
-console.log('Creating CarConfigurator instance...');
 const configurator = new CarConfigurator();
-console.log('CarConfigurator instance created');
-
-// グローバルにアクセスできるように
 window.configurator = configurator;

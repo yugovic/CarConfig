@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,10 +17,29 @@
             <div class="logo">
                 <span>Jaguar Configurator</span>
             </div>
-            <button class="movie-btn-top" id="playMovieTop" title="プレゼンテーション">
-                <i class="fas fa-play"></i>
-            </button>
+            <div class="top-actions">
+                <button class="icon-btn" id="shareLink" title="構成をリンクで共有" aria-label="構成をリンクで共有">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+                </button>
+                <button class="icon-btn" id="screenshotBtn" title="スクリーンショットを保存" aria-label="スクリーンショットを保存">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+                <div class="dev-menu-wrap">
+                    <button class="icon-btn" id="devMenuBtn" title="詳細設定" aria-label="詳細設定">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                    </button>
+                    <div class="dev-menu" id="devMenu">
+                        <button data-action="camera-editor">カメラエディター <kbd>Shift+E</kbd></button>
+                        <button data-action="garage">ガレージ設定 <kbd>Shift+G</kbd></button>
+                    </div>
+                </div>
+                <button class="movie-btn-top" id="playMovieTop" title="プレゼンテーション" aria-label="プレゼンテーション">
+                    <span class="movie-icon"><svg class="icon-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg><svg class="icon-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></span>
+                </button>
+            </div>
         </div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <aside class="spec-panel" id="specPanel"></aside>
         
         <div class="movie-progress-top" id="movieProgressTop">
             <div class="progress-bar"></div>
@@ -34,10 +52,15 @@
                     <span>モデル</span>
                 </button>
                 <button class="tab-btn" data-tab="exterior">
-                    <span>エクステリア</span>
+                    <span>カラー</span>
+                </button>
+                <button class="tab-btn" data-tab="details">
+                    <span>ディテール</span>
+                </button>
+                <button class="tab-btn" data-tab="environment">
+                    <span>環境</span>
                 </button>
                 <button class="tab-btn" data-tab="camera">
-                    <i class="fas fa-camera"></i>
                     <span>ビュー</span>
                 </button>
             </div>
@@ -46,68 +69,51 @@
                 <div class="tab-panel active" id="models-panel">
                     <h2 class="panel-title">モデルを選択</h2>
                     <div class="model-grid">
-                        <div class="model-card active" data-car="DaimlerV8">
-                            <h3>Daimler V8</h3>
-                        </div>
-                        <div class="model-card" data-car="JaguarXJ8">
-                            <h3>Jaguar XJ8</h3>
-                        </div>
-                        <div class="model-card" data-car="JaguarXJR">
-                            <h3>Jaguar XJR</h3>
-                        </div>
-                        <div class="model-card" data-car="JaguarSuperV8">
-                            <h3>Jaguar Super V8</h3>
-                        </div>
-                        <div class="model-card" data-car="JaguarXJSovereign">
-                            <h3>XJ Sovereign</h3>
-                        </div>
-                        <div class="model-card" data-car="JaguarXJSports">
-                            <h3>XJ Sports</h3>
-                        </div>
+                        <!-- src/config.js の CARS から生成 -->
                     </div>
                 </div>
             
                 <div class="tab-panel" id="exterior-panel">
-                    <h2 class="panel-title">エクステリアカラー</h2>
-                    <div class="color-selection">
-                        <div class="color-grid">
-                            <div class="color-option active" data-color="#052e1c">
-                                <div class="color-circle" style="background-color: #052e1c;"></div>
-                                <span>ブリティッシュグリーン</span>
+                    <div class="option-row">
+                        <h2 class="panel-title">エクステリアカラー</h2>
+                        <div class="color-selection">
+                            <div class="color-grid">
+                                <!-- src/config.js の COLORS から生成 -->
                             </div>
-                            <div class="color-option" data-color="#000000">
-                                <div class="color-circle" style="background-color: #000000;"></div>
-                                <span>サントリーニブラック</span>
-                            </div>
-                            <div class="color-option" data-color="#1e3a5f">
-                                <div class="color-circle" style="background-color: #1e3a5f;"></div>
-                                <span>ミッドナイトブルー</span>
-                            </div>
-                            <div class="color-option" data-color="#FFFFFF">
-                                <div class="color-circle" style="background-color: #FFFFFF;"></div>
-                                <span>ポラリスホワイト</span>
-                            </div>
-                            <div class="color-option" data-color="#C0C0C0">
-                                <div class="color-circle" style="background-color: #C0C0C0;"></div>
-                                <span>インダスシルバー</span>
-                            </div>
-                            <div class="color-option" data-color="#800020">
-                                <div class="color-circle" style="background-color: #800020;"></div>
-                                <span>カーネリアンレッド</span>
-                            </div>
-                            <div class="color-option" data-color="#B8860B">
-                                <div class="color-circle" style="background-color: #B8860B;"></div>
-                                <span>ブラスゴールド</span>
-                            </div>
-                            <div class="color-option" data-color="#4B0082">
-                                <div class="color-circle" style="background-color: #4B0082;"></div>
-                                <span>アメジストパープル</span>
+                            <div class="custom-color">
+                                <label for="bodyColorPicker">カスタム</label>
+                                <input type="color" id="bodyColorPicker" class="color-picker" value="#0b3a2a">
                             </div>
                         </div>
-                        <div class="custom-color">
-                            <label>カスタムカラー</label>
-                            <input type="color" id="bodyColorPicker" class="color-picker" value="#052e1c">
-                        </div>
+                    </div>
+                    <div class="option-row">
+                        <h2 class="panel-title">塗装仕上げ</h2>
+                        <div class="pill-row finish-options"></div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="details-panel">
+                    <div class="option-row">
+                        <h2 class="panel-title">ホイール</h2>
+                        <div class="pill-row wheel-options"></div>
+                    </div>
+                    <div class="option-row">
+                        <h2 class="panel-title">ガラス</h2>
+                        <div class="pill-row glass-options"></div>
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="environment-panel">
+                    <div class="option-row">
+                        <h2 class="panel-title">背景</h2>
+                        <div class="pill-row env-options"></div>
+                    </div>
+                    <div class="option-row">
+                        <h2 class="panel-title">画質</h2>
+                        <label class="switch-field">
+                            <input type="checkbox" id="qualityToggle">
+                            <span>高画質（アンビエントオクルージョン・ブルーム・SMAA）</span>
+                        </label>
                     </div>
                 </div>
             
@@ -124,12 +130,19 @@
                             <button class="view-btn" data-view="rear">
                                 <span>リア</span>
                             </button>
+                            <button class="view-btn" data-view="top">
+                                <span>トップ</span>
+                            </button>
                         </div>
+                        <label class="switch-field">
+                            <input type="checkbox" id="autoRotateToggle" checked>
+                            <span>操作がないときに自動回転</span>
+                        </label>
                         
                         <div class="movie-section">
                             <h3>プレゼンテーション</h3>
                             <button class="movie-btn modern" id="playMovie">
-                                <i class="fas fa-play movie-icon"></i>
+                                <span class="movie-icon"><svg class="icon-play" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg><svg class="icon-pause" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></span>
                                 <span class="movie-text">ムービー再生</span>
                             </button>
                             <div class="movie-progress">
@@ -309,7 +322,7 @@
                         </div>
                         
                         <div class="settings-group">
-                            <h3><i class="fas fa-video"></i> カメラ設定</h3>
+                            <h3>カメラ設定</h3>
                             <div class="slider-field">
                                 <label>視野角(FOV)</label>
                                 <input type="range" id="cameraFOV" min="20" max="100" step="1" value="30">
@@ -332,7 +345,7 @@
         
         <div class="loading-screen" id="loading">
             <div class="spinner"></div>
-            <p>Loading Car Model...</p>
+            <p>モデルを読み込み中...</p>
         </div>
     </div>
     
