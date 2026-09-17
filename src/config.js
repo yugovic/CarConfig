@@ -106,9 +106,11 @@ export const WHEEL_FINISHES = {
 };
 
 export const GLASS_TINTS = {
-    clear: { name: 'クリア', color: '#dfe9ef', opacity: 0.32 },
-    light: { name: 'ライトスモーク', color: '#6c7981', opacity: 0.55 },
-    dark: { name: 'ダークスモーク', color: '#1d2226', opacity: 0.82 }
+    // 実車のガラスはわずかに緑がかった暗色。opacity は「奥の暗さ」の量
+    // ガラスの拡散色はほぼ黒にし、明るさは反射だけで出す（色を上げると白く濁る）
+    clear: { name: 'クリア', color: '#1a2426', opacity: 0.5 },
+    light: { name: 'ライトスモーク', color: '#0e1315', opacity: 0.68 },
+    dark: { name: 'ダークスモーク', color: '#060809', opacity: 0.88 }
 };
 
 /**

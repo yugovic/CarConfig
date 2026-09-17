@@ -177,9 +177,10 @@ export function prepareCarModel(root, options) {
                     out = toPhysical(mat, { metalness: 1.0, roughness: 0.18, envMapIntensity: 1.5 });
                     break;
                 case 'glass':
+                    // 反射を強くしすぎると窓が白く飛ぶため、環境の映り込みは控えめにする
                     out = toPhysical(mat, {
-                        metalness: 0.0, roughness: 0.04, transparent: true, depthWrite: false,
-                        envMapIntensity: 1.6, ior: 1.5, side: THREE.DoubleSide
+                        metalness: 0.25, roughness: 0.03, transparent: true, depthWrite: false,
+                        envMapIntensity: 0.4, ior: 1.5, side: THREE.DoubleSide
                     });
                     break;
                 case 'lens':
@@ -199,11 +200,15 @@ export function prepareCarModel(root, options) {
                 case 'brakes':
                     out = toPhysical(mat, { metalness: 0.85, roughness: 0.45 });
                     break;
+                // 車内は本来ボディに遮られて暗いが、面光源は影を落とさないため明るくなりすぎる。
+                // 反射環境を弱め、色も暗めに補正して室内の暗さを再現する
                 case 'leather':
-                    out = toPhysical(mat, { metalness: 0.0, roughness: 0.62, sheen: 0.3, sheenRoughness: 0.8, envMapIntensity: 0.6 });
+                    out = toPhysical(mat, { metalness: 0.0, roughness: 0.7, sheen: 0.15, sheenRoughness: 0.9, envMapIntensity: 0.15 });
+                    out.color.multiplyScalar(0.45);
                     break;
                 case 'plastic':
-                    out = toPhysical(mat, { metalness: 0.0, roughness: 0.55, envMapIntensity: 0.5 });
+                    out = toPhysical(mat, { metalness: 0.0, roughness: 0.75, envMapIntensity: 0.12 });
+                    out.color.multiplyScalar(0.4);
                     break;
                 case 'rubber':
                     out = toPhysical(mat, { metalness: 0.0, roughness: 0.9, envMapIntensity: 0.3 });
